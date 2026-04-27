@@ -5,6 +5,7 @@ export const INITIAL_CART: CartItem[] = [
     id: "item-1",
     name: "Facebag",
     price: 98000,
+    weight: 167,
     quantity: 1,
     sku: "mczr_price_98000",
     color: "Playful Blue",

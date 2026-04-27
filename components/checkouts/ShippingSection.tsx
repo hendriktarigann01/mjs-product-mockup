@@ -1,4 +1,4 @@
-import type { ShippingService } from "@/types/checkout";
+import type { ShippingService } from "@/components/checkouts/ShippingMethod";
 import ShippingMethod from "@/components/checkouts/ShippingMethod";
 
 interface ShippingSectionProps {

@@ -32,9 +32,7 @@ import {
   createTransactionToken,
   openMidtransPayment,
 } from "@/utils/midtrans-service";
-import {
-  generatePatternPDFSafe,
-} from "@/utils/generate-pdf";
+import { generatePatternPDFSafe } from "@/utils/generate-pdf";
 import { PREDEFINED_DESIGNS } from "@/constants/mockup";
 
 import type { CartItemWithCustomization } from "@/utils/cart-service";
@@ -116,10 +114,12 @@ export default function CheckoutPage() {
       //    generatePatternPDFSafe: race vs timeout 8s, tidak pernah block payment.
       //    Return null jika tidak ada design, timeout, atau generate gagal.
       const firstItem = cartItems[0];
-      const customization = firstItem?.customization as {
-        design?: string | null;
-        photos?: (string | null)[];
-      } | undefined;
+      const customization = firstItem?.customization as
+        | {
+            design?: string | null;
+            photos?: (string | null)[];
+          }
+        | undefined;
 
       // Resolve design ID → src (sama seperti Canvas.tsx)
       const designSrc = (() => {
@@ -131,7 +131,10 @@ export default function CheckoutPage() {
       })();
 
       console.log("[PDF] designSrc resolved:", designSrc);
-      console.log("[PDF] photos count:", customization?.photos?.filter(Boolean).length ?? 0);
+      console.log(
+        "[PDF] photos count:",
+        customization?.photos?.filter(Boolean).length ?? 0,
+      );
 
       const canvasPdfBase64 = await generatePatternPDFSafe({
         designSrc,
@@ -181,7 +184,14 @@ export default function CheckoutPage() {
 
       console.log(
         "🛒 Checkout paymentData:",
-        JSON.stringify({ ...paymentData, canvasPdfBase64: canvasPdfBase64 ? "[base64 present]" : null }, null, 2),
+        JSON.stringify(
+          {
+            ...paymentData,
+            canvasPdfBase64: canvasPdfBase64 ? "[base64 present]" : null,
+          },
+          null,
+          2,
+        ),
       );
 
       // Create transaction token dari backend
@@ -193,14 +203,17 @@ export default function CheckoutPage() {
           console.log("payment success", result);
           try {
             // Trigger webhook manually since Midtrans can't reach localhost
-            await fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/midtrans/callback`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                order_id: result.order_id,
-                transaction_status: "settlement"
-              })
-            });
+            await fetch(
+              `${process.env.NEXT_PUBLIC_API_URL || ""}/api/midtrans/callback`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  order_id: result.order_id,
+                  transaction_status: "settlement",
+                }),
+              },
+            );
           } catch (e) {
             console.error("Failed to manual trigger callback", e);
           }
@@ -213,8 +226,10 @@ export default function CheckoutPage() {
           window.location.href = `/order-error`;
         },
         onClose: () => {
-          console.log('Customer closed the popup without finishing the payment');
-        }
+          console.log(
+            "Customer closed the popup without finishing the payment",
+          );
+        },
       });
 
       // Store order data untuk verification
@@ -243,7 +258,10 @@ export default function CheckoutPage() {
     }
   };
 
-  const cartWeight = cartItems.reduce((sum, i) => sum + i.weight * i.quantity, 0);
+  const cartWeight = cartItems.reduce(
+    (sum, i) => sum + i.weight * i.quantity,
+    0,
+  );
   const shippingCost = selectedShipping?.price || 0;
   const finalTotal = cartTotal + shippingCost;
 
@@ -294,8 +312,8 @@ export default function CheckoutPage() {
             kecamatanId={wilayah.kecamatanId}
             kecamatanName={wilayah.kecamatanName}
             kabupatenName={wilayah.kabupatenName}
-            selectedShipping={selectedShipping}
-            onSelect={setSelectedShipping}
+            selectedShipping={selectedShipping as any}
+            onSelect={(service) => setSelectedShipping(service as any)}
           />
 
           {/* ── Payment Section ── */}
