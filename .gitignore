@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# temp order files (PDF + JSON — sementara, dihapus setelah email terkirim)
+/public/temp/*.pdf
+/public/temp/*.json

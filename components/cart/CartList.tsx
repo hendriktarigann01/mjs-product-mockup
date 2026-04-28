@@ -1,6 +1,5 @@
 import type { CartItem } from "@/types/cart";
 import { CartItemRow } from "@/components/cart/CartItemRow";
-import { Divider } from "@/components/common/Divider";
 
 interface CartListProps {
   items: CartItem[];

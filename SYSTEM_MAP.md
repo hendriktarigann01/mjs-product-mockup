@@ -73,11 +73,12 @@ app/checkouts/page.tsx [CheckoutPage]
   ├─> getCart() / getCartTotal() [utils/cart-service.ts]
   ├─> initMidtrans(clientKey)    [utils/midtrans-service.ts → inject snap.js]
   └─> handleCheckout()
+        ├─> generatePatternPDFSafe()     [utils/generate-pdf.ts → base64 PDF]
+        ├─> POST /api/pdf                [Next.js route → simpan {orderId}.pdf + {orderId}.json ke public/temp/]
         ├─> createTransactionToken(paymentData)
         │     └─> POST http://localhost:3001/api/midtrans/create-token
-        │           ├─> snap.createTransaction(payload)   [Midtrans SDK]
-        │           ├─> logOrderToSheets(orderData)       [Google Sheets API]
-        │           └─> sendOrderEmails(order, pdfBase64) [Resend → customer + pabrik]
+        │           ├─> snap.createTransaction({ enabled_payments: ["qris"] })  [Midtrans SDK — QRIS only]
+        │           └─> logOrderToSheets(orderData)       [Google Sheets API]
         ├─> openMidtransPayment(snapToken)  [window.snap.pay()]
         └─> localStorage "currentOrder" disimpan
 ```
@@ -85,7 +86,10 @@ app/checkouts/page.tsx [CheckoutPage]
 ### Flow 4 — Notifikasi Setelah Pembayaran
 ```
 Midtrans Webhook → POST /api/midtrans/callback (backend)
-  └─> updateOrderStatus(orderId) [update Google Sheets]
+  ├─> updateOrderStatus(orderId) [update Google Sheets]
+  └─> (jika paid) readTempOrderFiles(orderId)  [baca public/temp/{orderId}.json + .pdf dari disk]
+        ├─> sendOrderEmails(orderSummary, pdfBase64)  [Resend → customer + pabrik]
+        └─> deleteTempOrderFiles(orderId)             [hapus file PDF + JSON dari public/temp/]
 
 Midtrans redirect → app/order-success/page.tsx
   └─> clearCart() + tampilkan ringkasan dari localStorage
@@ -119,9 +123,11 @@ mjs-product-mockup/
 │       ├── pixabay/
 │       │   └── route.ts
 │       ├── pixabay-image/
-│       │   └── route.ts            ← (diduga proxy gambar Pixabay)
+│       │   └── route.ts            ← (proxy gambar Pixabay)
+│       ├── pdf/
+│       │   └── route.ts            ← POST (save PDF+JSON ke temp) | DELETE (hapus)
 │       └── remove-bg/
-│           └── route.ts            ← (diduga proxy remove background)
+│           └── route.ts            ← (proxy remove background)
 ├── backend/
 │   ├── index.js                    ← Express server (port 3001)
 │   ├── .env
@@ -189,6 +195,7 @@ mjs-product-mockup/
 ├── public/
 │   ├── products/      ← aset produk (shirt.png, socks.png, dll)
 │   ├── mockup/        ← desain preset (50+ file .png)
+│   ├── temp/          ← file PDF + JSON sementara per order (di-ignore git, dihapus setelah email)
 │   └── fonts/
 ├── fonts/             ← font local
 ├── cart.ts            ← (file root, kemungkinan draft/legacy)
@@ -293,12 +300,13 @@ backend/
 ├── index.js                  ← Entry point: middleware, mount routes, listen
 ├── config.js                 ← Inisialisasi Snap, Google Auth, Resend, env vars
 ├── routes/
-│   ├── midtrans.js           ← POST /api/midtrans/create-token + /callback
+│   ├── midtrans.js           ← POST /api/midtrans/create-token (QRIS only) + /callback
 │   └── notify.js             ← POST /api/notify-resi + GET /api/orders/:orderId
 ├── services/
 │   ├── sheets.js             ← logOrderToSheets, getOrderFromSheets, updateOrderStatus
 │   ├── email.js              ← sendOrderEmails (Resend)
-│   └── whatsapp.js           ← sendWAResi (Fonnte)
+│   ├── whatsapp.js           ← sendWAResi (Fonnte)
+│   └── orderCache.js         ← (DEPRECATED — tidak dipakai, dapat dihapus)
 └── templates/
     ├── emailCustomer.js      ← HTML template email konfirmasi customer
     └── emailPabrik.js        ← HTML template email order untuk pabrik
@@ -306,8 +314,8 @@ backend/
 
 | Endpoint | Method | Handler | Peran |
 |---|---|---|---|
-| `/api/midtrans/create-token` | `POST` | `routes/midtrans.js` | Buat Midtrans Snap token + log ke Sheets + kirim email |
-| `/api/midtrans/callback` | `POST` | `routes/midtrans.js` | Webhook Midtrans — update status order di Sheets |
+| `/api/midtrans/create-token` | `POST` | `routes/midtrans.js` | Buat Midtrans Snap token (QRIS only) + log ke Sheets |
+| `/api/midtrans/callback` | `POST` | `routes/midtrans.js` | Webhook Midtrans — update status, baca file temp, kirim email, hapus file |
 | `/api/notify-resi` | `POST` | `routes/notify.js` | Kirim notif WhatsApp resi via Fonnte (dipanggil Google Apps Script) |
 | `/api/orders/:orderId` | `GET` | `routes/notify.js` | Ambil data order dari Google Sheets |
 | `/health` | `GET` | `index.js` | Health check |

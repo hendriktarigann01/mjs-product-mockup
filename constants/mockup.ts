@@ -2,7 +2,7 @@ import type { DesignItem } from "@/types/product";
 
 export const PRODUCTS = [
   {
-    id: "shirt",
+    id: "fajamas",
     label: "T-Shirt",
     file: "/products/shirt.png",
     overlayFile: undefined,
@@ -10,6 +10,26 @@ export const PRODUCTS = [
     textArea: undefined,
     price: 308000,
     weight: 240,
+    sizeChart: {
+      regular: [
+        { size: "XS", length: 61, chest: 46, waist: 46 },
+        { size: "S", length: 65, chest: 49, waist: 49 },
+        { size: "M", length: 69.5, chest: 52, waist: 52 },
+        { size: "L", length: 73, chest: 55, waist: 55 },
+        { size: "XL", length: 77, chest: 58, waist: 58 },
+        { size: "XXL", length: 81, chest: 61, waist: 61 },
+        { size: "3XL", length: 82, chest: 67, waist: 67 },
+        { size: "4XL", length: 83, chest: 73, waist: 73 },
+        { size: "5XL", length: 84, chest: 76, waist: 76 },
+      ],
+      kids: [
+        { size: "0-1Y", length: 32, chest: 31, waist: 31 },
+        { size: "1-2Y", length: 38, chest: 34, waist: 34 },
+        { size: "3-4Y", length: 44, chest: 37, waist: 37 },
+        { size: "5-6Y", length: 50, chest: 40, waist: 40 },
+        { size: "7-8Y", length: 56, chest: 43, waist: 43 },
+      ],
+    },
   },
   {
     id: "socks",

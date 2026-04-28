@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 import { Header } from "@/components/common/Header";
 import { Footer } from "@/components/common/Footer";
 import { CartList } from "@/components/cart/CartList";

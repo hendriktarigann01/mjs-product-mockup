@@ -25,102 +25,131 @@
 import { jsPDF } from "jspdf";
 import { DESIGN_PAIRS } from "@/constants/mockup";
 
-// ─── Config pieces ─────────────────────────────────────────────────────────
-// A3 landscape = 420 × 297 mm | margin: 8mm | gap antar kolom: 5mm
-//
-// Col A (kiri)     : x=8,   w=120  → pieces 1, 2, 3 bertumpuk vertikal
-// Col B (tengah)   : x=133, w=115  → piece 4 (penuh) + piece 7 (bawah)
-// Col C-kiri       : x=253, w=70   → piece 5 (back body kiri)
-// Col C-kanan      : x=328, w=85   → piece 6 (back body kanan)
-//
-// Baris body  : y=8,  h=185mm
-// Baris bawah : y=198
-
 const PIECES = [
-  // ── Col A: 1 (yoke atas) + 2 (yoke bawah) + 3 (collar) ────────
-  { id: 1, label: "1", x: 8,   y: 8,   w: 120, h: 75  },
-  { id: 2, label: "2", x: 8,   y: 88,  w: 120, h: 70  },
-  { id: 3, label: "3", x: 8,   y: 163, w: 120, h: 90  },
+  // ── Kolom A (Sleeves/Yokes) ────────
+  { id: 1, label: "1", x: 8, y: 10, w: 75, h: 60 },
+  { id: 2, label: "2", x: 8, y: 75, w: 75, h: 60 },
+  { id: 3, label: "3", x: 8, y: 140, w: 75, h: 60 },
 
-  // ── Col B: Front Body (penuh) + piece 7 (bawah) ────────────────
-  { id: 4, label: "4", x: 133, y: 8,   w: 115, h: 185 },
-  { id: 7, label: "7", x: 133, y: 198, w: 65,  h: 60  },
+  // ── Kolom B (Badan Depan - Lebar) ──
+  // w: 148 adalah angka kunci agar h: 195 tidak menciutkan gambar 2236px
+  { id: 4, label: "4", x: 88, y: 10, w: 148, h: 195 },
+  // Piece 7 (Pocket/Small) diletakkan di bawah piece 4
+  { id: 7, label: "7", x: 88, y: 210, w: 60, h: 65 },
 
-  // ── Col C: Back Body split — 5 (kiri) dan 6 (kanan) side-by-side
-  { id: 5, label: "5", x: 253, y: 8,   w: 70,  h: 245 },
-  { id: 6, label: "6", x: 328, y: 8,   w: 85,  h: 245 },
+  // ── Kolom C (Badan Belakang L/R) ───
+  // w: 88 adalah angka kunci agar h: 195 pas untuk gambar 1280px
+  // Piece 5 dan 6 diletakkan berdampingan (side-by-side)
+  { id: 5, label: "5", x: 242, y: 10, w: 86, h: 195 },
+  { id: 6, label: "6", x: 330, y: 10, w: 86, h: 195 },
 ] as const;
 
 // Dynamic base path for piece images based on product label
 function getPieceBase(productLabel: string): string {
-  // Assumes pieces are stored under public/products/piece/<label>/
-  return `/products/piece/${productLabel}/`; // e.g., /products/piece/fajamas/
+  return `/products/piece/${productLabel}/`;
 }
 
-const TILE = 200; // larger tile for full‑size piece image
-const GAP = 0; // no gap – pieces flush together
-const CELL = TILE + GAP;
+// ─── Konstanta pattern — HARUS identik dengan Canvas.tsx ───────────────────
+const TILE = 30;
+const GAP = 50;
+const CELL = TILE + GAP; // = cellW = cellH di Canvas.tsx
+
+// Pattern canvas size — sama dengan SIZE di Canvas.tsx agar density match
+const PATTERN_SIZE = 500;
 
 // ─── Image loader dengan CORS support ──────────────────────────────────────
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new window.Image();
     img.crossOrigin = "anonymous";
-    img.onload  = () => resolve(img);
+    img.onload = () => resolve(img);
     img.onerror = () => reject(new Error(`Failed to load: ${src}`));
     img.src = src;
   });
 }
 
-// ─── Build pattern canvas (sama persis dengan Canvas.tsx) ──────────────────
+// ─── Build pattern canvas — IDENTIK dengan logic di Canvas.tsx ─────────────
+//
+// Canvas.tsx pakai SIZE=500 sebagai ukuran canvas pattern.
+// PDF pakai PATTERN_SIZE=500 yang sama agar tile density persis match.
+//
+// Loop structure, TILE, GAP, offset semua disamakan 1:1 dengan Canvas.tsx.
 async function buildPatternCanvas(
   designSrc: string | null,
   photos: (string | null)[],
-  size: number,
 ): Promise<HTMLCanvasElement | null> {
   const activePhotos = photos.filter(Boolean) as string[];
-  const usePhotos    = activePhotos.length > 0;
+  const usePhotos = activePhotos.length > 0;
 
   if (!designSrc && !usePhotos) return null;
 
-  const pat    = document.createElement("canvas");
-  pat.width    = size;
-  pat.height   = size;
-  const ctx    = pat.getContext("2d")!;
-  const cols   = Math.ceil(size / CELL) + 2;
-  const rows   = Math.ceil(size / CELL) + 2;
+  const size = PATTERN_SIZE;
+  const cols = Math.ceil(size / CELL) + 2;
+  const rows = Math.ceil(size / CELL) + 2;
+
+  const pat = document.createElement("canvas");
+  pat.width = size;
+  pat.height = size;
+  const ctx = pat.getContext("2d")!;
 
   if (usePhotos) {
-    const imgs = await Promise.all(activePhotos.map(loadImage));
-    const count = imgs.length;
+    // ── Sama persis dengan buildPhotoPattern di Canvas.tsx ──────────────
+    const photoImgs = await Promise.all(activePhotos.map(loadImage));
+    const count = photoImgs.length;
 
     if (count === 1) {
-      for (let r = -1; r < rows; r++) for (let c = -1; c < cols; c++) {
-        ctx.drawImage(imgs[0], c * CELL,               r * CELL,               TILE, TILE);
-        ctx.drawImage(imgs[0], c * CELL + CELL / 2,    r * CELL + CELL / 2,    TILE, TILE);
+      const img = photoImgs[0];
+      for (let row = -1; row < rows; row++) {
+        for (let col = -1; col < cols; col++) {
+          const ax = col * CELL;
+          const ay = row * CELL;
+          ctx.drawImage(img, ax, ay, TILE, TILE);
+          ctx.drawImage(img, ax + CELL / 2, ay + CELL / 2, TILE, TILE);
+        }
       }
     } else if (count === 2) {
-      for (let r = -1; r < rows; r++) for (let c = -1; c < cols; c++) {
-        ctx.drawImage(imgs[0], c * CELL,            r * CELL,            TILE, TILE);
-        ctx.drawImage(imgs[1], c * CELL + CELL / 2, r * CELL + CELL / 2, TILE, TILE);
+      const [p1, p2] = photoImgs;
+      for (let row = -1; row < rows; row++) {
+        for (let col = -1; col < cols; col++) {
+          const ax = col * CELL;
+          const ay = row * CELL;
+          ctx.drawImage(p1, ax, ay, TILE, TILE);
+          ctx.drawImage(p2, ax + CELL / 2, ay + CELL / 2, TILE, TILE);
+        }
       }
     } else {
-      for (let r = -1; r < rows; r++) {
-        const img     = imgs[Math.abs(r) % 3];
-        const offsetX = r % 2 !== 0 ? CELL / 2 : 0;
-        for (let c = -1; c < cols; c++)
-          ctx.drawImage(img, c * CELL + offsetX, r * CELL, TILE, TILE);
+      // count >= 3
+      for (let row = -1; row < rows; row++) {
+        const img = photoImgs[Math.abs(row) % 3];
+        const offsetX = row % 2 !== 0 ? CELL / 2 : 0;
+        for (let col = -1; col < cols; col++) {
+          const ax = col * CELL + offsetX;
+          const ay = row * CELL;
+          ctx.drawImage(img, ax, ay, TILE, TILE);
+        }
       }
     }
   } else if (designSrc) {
+    // ── Sama persis dengan design branch di Canvas.tsx ──────────────────
     const pairSrc = DESIGN_PAIRS[designSrc] ?? null;
-    const [dImg, pImg] = await Promise.all([
+    const [designImg, pairImg] = await Promise.all([
       loadImage(designSrc),
       pairSrc ? loadImage(pairSrc) : Promise.resolve(null),
     ]);
-    for (let r = -1; r < rows; r++) for (let c = -1; c < cols; c++) {
-      ctx.drawImage(dImg,         c * CELL,            r * CELL,            TILE, TILE);
-      ctx.drawImage(pImg ?? dImg, c * CELL + CELL / 2, r * CELL + CELL / 2, TILE, TILE);
+
+    for (let row = -1; row < rows; row++) {
+      for (let col = -1; col < cols; col++) {
+        const ax = col * CELL;
+        const ay = row * CELL;
+        ctx.drawImage(designImg, ax, ay, TILE, TILE);
+        ctx.drawImage(
+          pairImg ?? designImg,
+          ax + CELL / 2,
+          ay + CELL / 2,
+          TILE,
+          TILE,
+        );
+      }
     }
   }
 
@@ -129,14 +158,14 @@ async function buildPatternCanvas(
 
 // ─── Render 1 piece ke offscreen canvas dengan pattern masked ──────────────
 async function renderPiece(
-  pieceImg:   HTMLImageElement,
-  patCanvas:  HTMLCanvasElement | null,
+  pieceImg: HTMLImageElement,
+  patCanvas: HTMLCanvasElement | null,
   pxW: number,
   pxH: number,
 ): Promise<HTMLCanvasElement> {
-  const c   = document.createElement("canvas");
-  c.width   = pxW;
-  c.height  = pxH;
+  const c = document.createElement("canvas");
+  c.width = pxW;
+  c.height = pxH;
   const ctx = c.getContext("2d")!;
 
   if (patCanvas) {
@@ -168,7 +197,6 @@ async function renderPiece(
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = "source-over";
   } else {
-    // Tanpa pattern — render piece plain
     ctx.drawImage(pieceImg, 0, 0, pxW, pxH);
   }
 
@@ -177,54 +205,55 @@ async function renderPiece(
 
 // ─── Main: generate PDF dan return base64 string ───────────────────────────
 export async function generatePatternPDF(params: {
-  designSrc:    string | null;
-  photos:       (string | null)[];
+  designSrc: string | null;
+  photos: (string | null)[];
   productLabel: string;
-  orderId?:     string;
+  orderId?: string;
 }): Promise<string> {
   const { designSrc, photos, productLabel, orderId } = params;
 
-  // A3 landscape (mm)
   const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a3" });
-  const PW  = pdf.internal.pageSize.getWidth();   // 420
-  const PH  = pdf.internal.pageSize.getHeight();  // 297
-
-  // DPI untuk convert mm → px (96dpi)
-  const MM_TO_PX = 96 / 25.4;
+  const PW = pdf.internal.pageSize.getWidth(); // 420
+  const PH = pdf.internal.pageSize.getHeight(); // 297
 
   // Build pattern canvas sekali, pakai ulang untuk semua pieces
-  // Pakai size 1000px agar pattern cukup dense
-  const PATTERN_SIZE = 1000;
-  const patCanvas = await buildPatternCanvas(designSrc, photos, PATTERN_SIZE);
+  // PATTERN_SIZE=500 agar density sama dengan Canvas.tsx (SIZE=500)
+  const patCanvas = await buildPatternCanvas(designSrc, photos);
 
   // Tentukan layout pieces berdasarkan productLabel
   const isSinglePiece = productLabel === "socks" || productLabel === "totebag";
-  const targetPieces = isSinglePiece 
-    ? [{ id: 1, label: "Full Piece", x: 8, y: 8, w: 404, h: 281 }] 
+  const targetPieces = isSinglePiece
+    ? [{ id: 1, label: "Full Piece", x: 8, y: 8, w: 404, h: 281 }]
     : PIECES;
 
   // Load piece images paralel
   const pieceImgs = await Promise.all(
-    targetPieces.map((p) =>
-      loadImage(`${getPieceBase(productLabel)}${p.id}.png`).catch(() => null)
-    )
+    targetPieces.map((p) => {
+      const src = `${getPieceBase(productLabel)}${p.id}.png`;
+      return loadImage(src).catch(() => null);
+    }),
   );
 
   // Render setiap piece dan tambahkan ke PDF
   for (let i = 0; i < targetPieces.length; i++) {
-    const piece  = targetPieces[i];
+    const piece = targetPieces[i];
     const pieceImg = pieceImgs[i];
     if (!pieceImg) {
       console.warn(`[PDF] Missing image for piece ${piece.id}`);
       continue;
     }
 
-    // Gunakan ukuran pixel asli gambar untuk render agar resolusi maksimal
-    const pxW = pieceImg.width;
-    const pxH = pieceImg.height;
+    const MAX_PX = 500;
+    let pxW = pieceImg.width;
+    let pxH = pieceImg.height;
+    if (pxW > MAX_PX || pxH > MAX_PX) {
+      const scale = Math.min(MAX_PX / pxW, MAX_PX / pxH);
+      pxW = Math.round(pxW * scale);
+      pxH = Math.round(pxH * scale);
+    }
 
     const pieceCanvas = await renderPiece(pieceImg, patCanvas, pxW, pxH);
-    const dataUrl     = pieceCanvas.toDataURL("image/png");
+    const dataUrl = pieceCanvas.toDataURL("image/png");
 
     // Contain logic: draw image proportionally within piece bounding box
     const imgAspect = pxW / pxH;
@@ -243,7 +272,6 @@ export async function generatePatternPDF(params: {
 
     pdf.addImage(dataUrl, "PNG", drawX, drawY, drawW, drawH);
 
-    // Label kecil di bawah piece (hanya jika bukan single piece)
     if (!isSinglePiece) {
       pdf.setFontSize(6);
       pdf.setTextColor(150);
@@ -261,7 +289,6 @@ export async function generatePatternPDF(params: {
     pdf.text(orderId, PW - 10, PH - 10, { align: "right" });
   }
 
-  // Return sebagai base64 string (tanpa prefix "data:application/pdf;base64,")
   return pdf.output("datauristring").split(",")[1];
 }
 
@@ -275,11 +302,11 @@ export async function generatePatternPDF(params: {
  * @param timeoutMs - batas waktu generate, default 8000ms
  */
 export async function generatePatternPDFSafe(params: {
-  designSrc:    string | null;
-  photos:       (string | null)[];
+  designSrc: string | null;
+  photos: (string | null)[];
   productLabel: string;
-  orderId?:     string;
-  timeoutMs?:   number;
+  orderId?: string;
+  timeoutMs?: number;
 }): Promise<string | null> {
   const { timeoutMs = 8000, ...pdfParams } = params;
 
@@ -290,14 +317,22 @@ export async function generatePatternPDFSafe(params: {
   }
 
   const pdfPromise = generatePatternPDF(pdfParams)
-    .then((b64) => { console.log("[PDF] Generated OK"); return b64; })
-    .catch((err) => { console.error("[PDF] Generation failed:", err.message); return null; });
+    .then((b64) => {
+      console.log("[PDF] Generated OK");
+      return b64;
+    })
+    .catch((err) => {
+      console.error("[PDF] Generation failed:", err.message);
+      return null;
+    });
 
   const timeoutPromise = new Promise<null>((resolve) =>
     setTimeout(() => {
-      console.warn(`[PDF] Timeout after ${timeoutMs}ms — skipping PDF attachment`);
+      console.warn(
+        `[PDF] Timeout after ${timeoutMs}ms — skipping PDF attachment`,
+      );
       resolve(null);
-    }, timeoutMs)
+    }, timeoutMs),
   );
 
   return Promise.race([pdfPromise, timeoutPromise]);

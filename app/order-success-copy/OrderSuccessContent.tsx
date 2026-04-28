@@ -1,5 +1,6 @@
 /**
  * Order Success Page Content
+ * Auto-redirect ke home setelah 10 detik
  */
 
 "use client";
@@ -16,6 +17,7 @@ export default function OrderSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [orderData, setOrderData] = useState<any>(null);
+  const [countdown, setCountdown] = useState(10);
 
   useEffect(() => {
     // Get order ID dari URL
@@ -41,6 +43,22 @@ export default function OrderSuccessContent() {
     localStorage.removeItem("currentOrder");
   }, [searchParams]);
 
+  // Auto-redirect setelah 10 detik
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCountdown((prev) => prev - 1);
+    }, 1000);
+
+    const redirectTimer = setTimeout(() => {
+      router.push("/");
+    }, 10000);
+
+    return () => {
+      clearInterval(timer);
+      clearTimeout(redirectTimer);
+    };
+  }, [router]);
+
   return (
     <main className="min-h-screen bg-[#F5F2ED] px-6 py-12">
       <div className="w-full max-w-2xl mx-auto">
@@ -55,6 +73,11 @@ export default function OrderSuccessContent() {
           <div className="flex flex-col items-center text-center">
             {/* Success Icon */}
             <CheckCircle className="w-16 h-16 text-green-500 mb-4" />
+
+            {/* Title */}
+            <h1 className="font-serif text-3xl text-stone-800 mb-2">
+              Payment Confirmed!
+            </h1>
 
             {/* Description */}
             <p className="font-mono text-sm text-stone-600 mb-6">
@@ -73,6 +96,13 @@ export default function OrderSuccessContent() {
                 </p>
               </div>
             )}
+
+            {/* Countdown */}
+            <p className="font-mono text-xs text-stone-500 mb-4">
+              Redirecting to home in{" "}
+              <span className="font-semibold text-green-600">{countdown}s</span>
+              ...
+            </p>
           </div>
         </div>
 
@@ -186,13 +216,33 @@ export default function OrderSuccessContent() {
           </ul>
         </div>
 
+        {/* Actions */}
+        <div className="flex flex-col sm:flex-row gap-4 mb-8">
+          <button className="flex-1 flex items-center justify-center gap-2 px-4 py-3 border border-stone-300 rounded hover:bg-stone-50 transition-colors">
+            <Download size={16} />
+            <span className="font-mono text-xs uppercase tracking-wider">
+              Download Receipt
+            </span>
+          </button>
+
+          <Link
+            href="/"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-stone-800 text-white rounded hover:bg-stone-700 transition-colors"
+          >
+            <Home size={16} />
+            <span className="font-mono text-xs uppercase tracking-wider">
+              Back to Home
+            </span>
+          </Link>
+        </div>
+
         {/* Support */}
         <div className="bg-stone-100 rounded-lg p-6 text-center">
           <p className="font-mono text-xs text-stone-600 mb-2">
             Need help? Contact our support
           </p>
-          <p className="text-sm text-stone-800">
-            📞 +62-812-3456-7890
+          <p className="font-serif text-sm text-stone-800">
+            📧 support@happify.id | 📞 +62-812-3456-7890
           </p>
         </div>
 

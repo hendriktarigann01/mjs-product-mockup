@@ -6,7 +6,6 @@
 "use client";
 
 import React, { useRef } from "react";
-import { Zap } from "lucide-react";
 import { motion } from "framer-motion";
 
 // Hooks
