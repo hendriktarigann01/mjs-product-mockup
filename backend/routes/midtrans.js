@@ -1,15 +1,82 @@
-// Tujuan      : Route handler Midtrans — buat Snap token dan proses webhook callback
+// Tujuan      : Route handler Midtrans — buat Snap token (QRIS only) dan proses webhook callback
 // Caller      : backend/index.js (mounted di /api/midtrans)
-// Dependensi  : snap (config), sheets, email, orderCache
+// Dependensi  : snap (config), sheets, email
 // Main Exports: router (Express Router)
 // Side Effects: Midtrans Snap API, Google Sheets write, Resend email (hanya setelah paid)
+//               File read/delete dari public/temp/{orderId}.pdf dan {orderId}.json
+
+const path = require("path");
+const fs = require("fs");
 const { Router } = require("express");
 const { snap } = require("../config");
 const { logOrderToSheets, updateOrderStatus } = require("../services/sheets");
 const { sendOrderEmails } = require("../services/email");
-const { setOrderCache, getOrderCache, deleteOrderCache } = require("../services/orderCache");
 
 const router = Router();
+
+// Direktori temp Next.js (public/temp) — diakses langsung dari filesystem
+// Karena backend dan Next.js berjalan di mesin yang sama
+const TEMP_DIR = path.resolve(__dirname, "../../public/temp");
+
+/**
+ * Baca file dari public/temp/{orderId}.pdf dan {orderId}.json
+ * @param {string} orderId
+ * @returns {{ orderSummary: object|null, pdfBase64: string|null }}
+ */
+function readTempOrderFiles(orderId) {
+  const jsonPath = path.join(TEMP_DIR, `${orderId}.json`);
+  const pdfPath = path.join(TEMP_DIR, `${orderId}.pdf`);
+
+  let orderSummary = null;
+  let pdfBase64 = null;
+
+  try {
+    if (fs.existsSync(jsonPath)) {
+      orderSummary = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
+      console.log(`[TempFile] JSON read: ${orderId}.json`);
+    } else {
+      console.warn(`[TempFile] JSON not found: ${orderId}.json`);
+    }
+  } catch (e) {
+    console.error(`[TempFile] JSON read error:`, e.message);
+  }
+
+  try {
+    if (fs.existsSync(pdfPath)) {
+      pdfBase64 = fs.readFileSync(pdfPath).toString("base64");
+      console.log(`[TempFile] PDF read: ${orderId}.pdf`);
+    } else {
+      console.log(`[TempFile] No PDF for: ${orderId}`);
+    }
+  } catch (e) {
+    console.error(`[TempFile] PDF read error:`, e.message);
+  }
+
+  return { orderSummary, pdfBase64 };
+}
+
+/**
+ * Hapus file temp setelah email terkirim
+ * @param {string} orderId
+ */
+function deleteTempOrderFiles(orderId) {
+  const jsonPath = path.join(TEMP_DIR, `${orderId}.json`);
+  const pdfPath = path.join(TEMP_DIR, `${orderId}.pdf`);
+
+  for (const [label, filePath] of [
+    ["json", jsonPath],
+    ["pdf", pdfPath],
+  ]) {
+    try {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        console.log(`[TempFile] Deleted: ${orderId}.${label}`);
+      }
+    } catch (e) {
+      console.error(`[TempFile] Delete error (${label}):`, e.message);
+    }
+  }
+}
 
 // ── POST /api/midtrans/create-token ──────────────────────────────────────────
 router.post("/create-token", async (req, res) => {
@@ -20,7 +87,7 @@ router.post("/create-token", async (req, res) => {
       transactionDetails,
       customerDetails,
       itemDetails = [],
-      canvasPdfBase64,
+      pdfTempFilename, // orderId sebagai referensi file temp — menggantikan canvasPdfBase64
     } = req.body;
 
     if (!transactionDetails?.orderId || !transactionDetails?.grossAmount) {
@@ -31,7 +98,9 @@ router.post("/create-token", async (req, res) => {
     const grossAmount = parseInt(String(transactionDetails.grossAmount));
 
     if (isNaN(grossAmount) || grossAmount <= 0) {
-      return res.status(400).json({ error: "gross_amount must be positive number" });
+      return res
+        .status(400)
+        .json({ error: "gross_amount must be positive number" });
     }
 
     // Validasi sum item_details
@@ -49,9 +118,11 @@ router.post("/create-token", async (req, res) => {
       });
     }
 
-    console.log(`✅ Validated: ${orderId} | gross=${grossAmount} | items=${itemsSum}`);
+    console.log(
+      `✅ Validated: ${orderId} | gross=${grossAmount} | items=${itemsSum}`,
+    );
 
-    // Midtrans payload
+    // Midtrans payload — QRIS only
     const midtransPayload = {
       transaction_details: { order_id: orderId, gross_amount: grossAmount },
       customer_details: {
@@ -76,7 +147,7 @@ router.post("/create-token", async (req, res) => {
     };
 
     const transaction = await snap.createTransaction(midtransPayload);
-    console.log("✅ Midtrans token created");
+    console.log("✅ Midtrans token created (QRIS only)");
 
     // Ongkir = item dengan id "SHIPPING"
     const shippingItem = itemDetails.find((i) => i.id === "SHIPPING");
@@ -97,28 +168,12 @@ router.post("/create-token", async (req, res) => {
       kabupatenName: customerDetails.kabupatenName || "",
       provinsiName: customerDetails.provinsiName || "",
       shippingName: customerDetails.shippingName || shippingItem?.name || "",
-      paymentMethod: "Midtrans",
+      paymentMethod: "QRIS",
     });
 
-    // Kirim email: customer confirmation + pabrik (fire-and-forget)
-    const orderSummary = {
-      orderId,
-      customerName: [customerDetails.firstName, customerDetails.lastName]
-        .filter(Boolean)
-        .join(" "),
-      email: customerDetails.email,
-      phone: customerDetails.phone,
-      address: customerDetails.address || "",
-      zip: customerDetails.zip || "",
-      items: itemDetails.filter((i) => i.id !== "SHIPPING"),
-      ongkir,
-      totalHarga,
-      grossAmount,
-      shippingName: customerDetails.shippingName || "",
-    };
-
-    // Simpan order data ke in-memory cache — email dikirim setelah webhook paid masuk
-    setOrderCache(orderId, { orderSummary, canvasPdfBase64: canvasPdfBase64 ?? null });
+    console.log(
+      `[TempFile] pdfTempFilename received: ${pdfTempFilename ?? "none"}`,
+    );
 
     res.json({
       token: transaction.token,
@@ -132,7 +187,9 @@ router.post("/create-token", async (req, res) => {
         error_messages: error.ApiResponse.error_messages,
       });
     }
-    res.status(500).json({ error: error.message || "Failed to create transaction token" });
+    res
+      .status(500)
+      .json({ error: error.message || "Failed to create transaction token" });
   }
 });
 
@@ -157,16 +214,22 @@ router.post("/callback", async (req, res) => {
     if (status === "paid") {
       console.log(`✅ Order ${order_id} paid`);
 
-      // Ambil order data dari cache — kirim email sekarang (setelah payment confirmed)
-      const cached = getOrderCache(order_id);
-      if (cached) {
-        const { orderSummary, canvasPdfBase64 } = cached;
-        sendOrderEmails(orderSummary, canvasPdfBase64).catch((e) =>
+      // Baca file temp langsung dari disk (menggantikan orderCache)
+      const { orderSummary, pdfBase64 } = readTempOrderFiles(order_id);
+
+      if (orderSummary) {
+        console.log(
+          `📎 [Webhook] PDF attachment present: ${!!pdfBase64} for ${order_id}`,
+        );
+        sendOrderEmails(orderSummary, pdfBase64).catch((e) =>
           console.error("⚠️ Email error (non-fatal):", e.message),
         );
-        deleteOrderCache(order_id);
+        // Hapus file temp setelah email dikirim (fire-and-forget cleanup)
+        deleteTempOrderFiles(order_id);
       } else {
-        console.warn(`⚠️ [OrderCache] Data not found for: ${order_id} — email skipped`);
+        console.warn(
+          `⚠️ [TempFile] Order data not found for: ${order_id} — email skipped`,
+        );
       }
     }
 

@@ -10,7 +10,7 @@ const { sendWAResi } = require("./services/whatsapp");
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json({ limit: "150mb" }));
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use("/api/midtrans", midtransRouter);
