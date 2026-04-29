@@ -1,0 +1,6 @@
+# .vercelignore
+# Abaikan folder backend karena akan di-hosting di Hostinger via GitHub Actions
+backend/
+node_modules/
+.github/
+.env*
