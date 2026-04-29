@@ -1,15 +1,10 @@
-
-import { Header } from "@/components/common/Header";
-import { Footer } from "@/components/common/Footer";
 import { Customizer } from "@/components/customizer/Customizer";
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-[#F5F2ED] px-6 py-12">
-      <div className="w-full max-w-6xl mx-auto">
-        <Header breadcrumb="Studio / Customize" title="Design Your Product" />
+    <main className="relative h-screen bg-white overflow-hidden">
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
         <Customizer />
-        <Footer />
       </div>
     </main>
   );

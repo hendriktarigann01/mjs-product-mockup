@@ -43,3 +43,6 @@ next-env.d.ts
 # temp order files (PDF + JSON — sementara, dihapus setelah email terkirim)
 /public/temp/*.pdf
 /public/temp/*.json
+
+SYSTEM_MAP.md
+/.agents

@@ -88,12 +88,12 @@ export async function createTransactionToken(paymentData: PaymentData) {
 
     const data = await response.json();
 
-    if (!data.token) {
+    if (!data.token && !data.isCashier) {
       throw new Error("No token received from backend");
     }
 
-    console.log("✅ Transaction token created successfully");
-    return data.token;
+    console.log("✅ Transaction response received");
+    return data;
   } catch (error) {
     console.error("Error creating transaction token:", error);
     throw error;

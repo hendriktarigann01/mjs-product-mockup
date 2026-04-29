@@ -25,7 +25,7 @@ export function ContactSection({
           onChange={(e) => onEmailChange(e.target.value)}
           className={INPUT_CLASS}
         />
-        <label className="flex items-center gap-2 cursor-pointer">
+        {/* <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="checkbox"
             checked={newsletter}
@@ -35,7 +35,7 @@ export function ContactSection({
           <span className="font-mono text-xs text-stone-500">
             Email me with news and offers
           </span>
-        </label>
+        </label> */}
       </div>
     </section>
   );

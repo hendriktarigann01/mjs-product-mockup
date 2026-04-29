@@ -1,6 +1,12 @@
+// Tujuan      : Render canvas HTML5 — komposit produk + warna + desain/foto pattern
+// Caller      : components/customizer/Customizer.tsx
+// Dependensi  : constants/mockup (DESIGN_PAIRS)
+// Main Exports: Canvas (forwardRef — expose canvas element untuk PNG export)
+// Side Effects: Tidak ada — hanya render ke canvas
+
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import { DESIGN_PAIRS } from "@/constants/mockup";
 
 interface Props {
@@ -102,17 +108,33 @@ async function buildPhotoPattern(
   return pat;
 }
 
-export default function Canvas({
-  designSrc,
-  shirtColor,
-  productFile,
-  overlayFile,
-  photos,
-}: Props) {
+export interface CanvasHandle {
+  /** Export canvas content as PNG data URL */
+  toPngDataUrl: () => string | null;
+}
+
+const Canvas = forwardRef<CanvasHandle, Props>(function Canvas(
+  { designSrc, shirtColor, productFile, overlayFile, photos },
+  ref,
+) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const SIZE = 500;
 
   const activePhotos = photos.filter(Boolean) as string[];
+
+  // Expose toPngDataUrl method to parent via ref
+  useImperativeHandle(ref, () => ({
+    toPngDataUrl: () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return null;
+      try {
+        return canvas.toDataURL("image/png");
+      } catch (e) {
+        console.error("[Canvas] toDataURL failed (CORS?):", e);
+        return null;
+      }
+    },
+  }));
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -211,4 +233,6 @@ export default function Canvas({
       style={{ imageRendering: "crisp-edges" }}
     />
   );
-}
+});
+
+export default Canvas;

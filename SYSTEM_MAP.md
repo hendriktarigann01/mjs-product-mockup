@@ -1,13 +1,13 @@
 # SYSTEM_MAP — Happify Indonesia (mjs-product-mockup)
 
-> Dibuat: 2026-04-23 | Bahasa: Indonesia
+> Dibuat: 2026-04-23 | Diperbarui: 2026-04-29 | Bahasa: Indonesia
 
 ---
 
 ## Project Summary
 
 **Tujuan Aplikasi**
-Platform e-commerce kustomisasi produk (kaos, kaos kaki, tote bag, gift card) dengan fitur desain interaktif berbasis canvas, pembayaran online via Midtrans Snap, dan manajemen pesanan via Google Sheets + notifikasi email/WhatsApp.
+Platform e-commerce kustomisasi produk (kaos, kaos kaki, tote bag, gift card) dengan fitur desain interaktif berbasis canvas, pembayaran online via Midtrans Snap, manajemen pesanan via Supabase, cross-device checkout via QR code, dan notifikasi email/WhatsApp.
 
 **Tech Stack Utama**
 
@@ -22,7 +22,9 @@ Platform e-commerce kustomisasi produk (kaos, kaos kaki, tote bag, gift card) de
 | Payment | Midtrans Snap (sandbox) |
 | Email | Resend ^6.12.0 |
 | Backend | Express.js ^5.2.1 (server terpisah, port 3001) |
-| Data Store | Google Sheets API v4 (via googleapis ^171.4.0) |
+| Data Store | **Supabase** (PostgreSQL) — orders + checkout_sessions |
+| Google Sheets | Legacy — tetap ada untuk `notify-resi` backward compat |
+| QR Code | react-qr-code ^2.0.18 |
 | Notif WA | Fonnte API |
 | Desain Stok | Pixabay API (proxy via Next.js route) |
 | Ongkir | Binderbyte API |
@@ -31,8 +33,9 @@ Platform e-commerce kustomisasi produk (kaos, kaos kaki, tote bag, gift card) de
 - **App Router** (Next.js) — semua halaman di `app/`
 - **Client Components** (`"use client"`) untuk semua halaman interaktif (cart, checkout, order pages)
 - **Tidak ada Server Actions** — checkout memanggil Express backend eksternal (`localhost:3001`)
-- **Storage State**: Cart disimpan di `localStorage` (`happify_cart`); order sementara di `currentOrder`
-- **Backend Terpisah**: `backend/index.js` — Express server mandiri (bukan Next.js API routes) yang mengurus Midtrans, Google Sheets, Resend, Fonnte
+- **Storage State**: Cart disimpan di `localStorage` (`happify_cart`); order sementara di `currentOrder`; checkout_sessions di Supabase untuk QR flow
+- **Backend Terpisah**: `backend/index.js` — Express server mandiri (bukan Next.js API routes) yang mengurus Midtrans, Supabase, Resend, Fonnte
+- **Cross-device QR Flow**: Cart → `QRCheckoutModal` → Supabase `checkout_sessions` → QR link `/checkouts?session_id={id}` → mobile browser prefill
 
 ---
 
@@ -61,41 +64,60 @@ app/cart/page.tsx [CartPage]
   ├─> CartList.tsx           [daftar item]
   │     └─> CartItemRow.tsx  [update qty / remove]
   ├─> CartOrderSummary.tsx   [subtotal + tombol ke checkout]
-  └─> CartEmptyState.tsx / TrustBadges.tsx
+  ├─> CartEmptyState.tsx / TrustBadges.tsx
+  └─> QRCheckoutModal.tsx    ["Continue on Mobile" → Supabase checkout_sessions insert → QR]
+```
+
+### Flow 2b — Cross-Device QR Checkout
+```
+[Kiosk] app/cart/page.tsx
+  └─> QRCheckoutModal.tsx
+        ├─> form: name, email, phone
+        └─> supabase.from("checkout_sessions").insert()
+              └─> QR Code: /checkouts?session_id={uuid}
+
+[Mobile] app/checkouts/page.tsx?session_id={uuid}
+  └─> supabase.from("checkout_sessions").select()  [fetch prefill data]
+        ├─> setFirstName / setEmail / setPhone
+        └─> setCartItems (dari session.cart_items)
 ```
 
 ### Flow 3 — Checkout & Pembayaran (FLOW UTAMA)
 ```
 app/checkouts/page.tsx [CheckoutPage]
-  ├─> useCheckoutForm.ts         [state form: email, nama, alamat, wilayah, shipping]
-  ├─> WilayahSelect.tsx          [provinsi → kabupaten → kecamatan via Binderbyte API]
-  ├─> ShippingMethod.tsx         [kalkulasi ongkir via Binderbyte API]
-  ├─> getCart() / getCartTotal() [utils/cart-service.ts]
-  ├─> initMidtrans(clientKey)    [utils/midtrans-service.ts → inject snap.js]
+  ├─> useSearchParams()           [deteksi session_id dari QR atau undefined]
+  ├─> [jika session_id] supabase.from("checkout_sessions").select()  [prefill form + cart]
+  ├─> [jika tidak] getCart() / getBuyNowItem()   [localStorage flow — tidak berubah]
+  ├─> useCheckoutForm.ts          [state form: email, nama, alamat, wilayah, shipping]
+  ├─> WilayahSelect.tsx           [provinsi → kabupaten → kecamatan via Binderbyte API]
+  ├─> ShippingMethod.tsx          [kalkulasi ongkir via Binderbyte API]
+  ├─> initMidtrans(clientKey)     [utils/midtrans-service.ts → inject snap.js]
   └─> handleCheckout()
-        ├─> generatePatternPDFSafe()     [utils/generate-pdf.ts → base64 PDF]
-        ├─> POST /api/pdf                [Next.js route → simpan {orderId}.pdf + {orderId}.json ke public/temp/]
+        ├─> generatePatternPDFSafe()      [utils/generate-pdf.ts → base64 PDF]
+        ├─> POST /api/pdf                 [Next.js route → simpan {orderId}.pdf + {orderId}.json ke public/temp/]
         ├─> createTransactionToken(paymentData)
         │     └─> POST http://localhost:3001/api/midtrans/create-token
         │           ├─> snap.createTransaction({ enabled_payments: ["qris"] })  [Midtrans SDK — QRIS only]
-        │           └─> logOrderToSheets(orderData)       [Google Sheets API]
-        ├─> openMidtransPayment(snapToken)  [window.snap.pay()]
+        │           └─> insertOrder(orderData)            [Supabase orders insert]
+        ├─> openMidtransPayment(snapToken)   [window.snap.pay()]
+        │     ├─> onSuccess → update checkout_sessions.status = 'paid' (jika QR flow)
+        │     └─> onPending → update checkout_sessions.status = 'waiting_payment' (jika QR flow)
         └─> localStorage "currentOrder" disimpan
 ```
 
 ### Flow 4 — Notifikasi Setelah Pembayaran
 ```
 Midtrans Webhook → POST /api/midtrans/callback (backend)
-  ├─> updateOrderStatus(orderId) [update Google Sheets]
-  └─> (jika paid) readTempOrderFiles(orderId)  [baca public/temp/{orderId}.json + .pdf dari disk]
+  ├─> updateOrderByOrderId(orderId, { status })  [Supabase orders update]
+  └─> (jika paid) readTempOrderFiles(orderId)    [baca public/temp/{orderId}.json + .pdf dari disk]
         ├─> sendOrderEmails(orderSummary, pdfBase64)  [Resend → customer + pabrik]
         └─> deleteTempOrderFiles(orderId)             [hapus file PDF + JSON dari public/temp/]
 
 Midtrans redirect → app/order-success/page.tsx
   └─> clearCart() + tampilkan ringkasan dari localStorage
 
-Admin input resi di Google Sheets
-  └─> Google Apps Script → POST /api/notify-resi (backend)
+Admin (legacy — notify resi)
+  └─> POST /api/notify-resi (backend)
         └─> sendWAResi() [Fonnte WhatsApp API]
 ```
 
@@ -110,9 +132,13 @@ mjs-product-mockup/
 │   ├── page.tsx                    ← Home / Customizer
 │   ├── globals.css
 │   ├── cart/
-│   │   └── page.tsx
+│   │   └── page.tsx                ← + QR "Continue on Mobile" button
 │   ├── checkouts/
-│   │   └── page.tsx
+│   │   └── page.tsx                ← + session_id QR flow (conditional)
+│   ├── admin/
+│   │   ├── page.tsx                ← Admin login
+│   │   └── dashboard/
+│   │       └── page.tsx            ← Order dashboard
 │   ├── order-success/
 │   │   └── page.tsx
 │   ├── order-pending/
@@ -128,6 +154,8 @@ mjs-product-mockup/
 │       │   └── route.ts            ← POST (save PDF+JSON ke temp) | DELETE (hapus)
 │       └── remove-bg/
 │           └── route.ts            ← (proxy remove background)
+├── lib/
+│   └── supabase.ts                 ← Frontend Supabase client (anon key, singleton)
 ├── backend/
 │   ├── index.js                    ← Express server (port 3001)
 │   ├── .env
@@ -153,7 +181,8 @@ mjs-product-mockup/
 │   │   ├── CartItemRow.tsx
 │   │   ├── CartOrderSummary.tsx
 │   │   ├── CartEmptyState.tsx
-│   │   └── TrustBadges.tsx
+│   │   ├── TrustBadges.tsx
+│   │   └── QRCheckoutModal.tsx     ← (NEW) QR cross-device checkout modal
 │   ├── checkouts/
 │   │   ├── ContactSection.tsx
 │   │   ├── DeliverySection.tsx
@@ -298,12 +327,12 @@ Struktur modular setelah separation of concern:
 ```
 backend/
 ├── index.js                  ← Entry point: middleware, mount routes, listen
-├── config.js                 ← Inisialisasi Snap, Google Auth, Resend, env vars
+├── config.js                 ← Inisialisasi Snap, Supabase admin, Resend, env vars
 ├── routes/
-│   ├── midtrans.js           ← POST /api/midtrans/create-token (QRIS only) + /callback
-│   └── notify.js             ← POST /api/notify-resi + GET /api/orders/:orderId
+│   └── midtrans.js           ← POST /api/midtrans/create-token (QRIS only) + /callback
 ├── services/
-│   ├── sheets.js             ← logOrderToSheets, getOrderFromSheets, updateOrderStatus
+│   ├── supabase.js           ← (NEW) insertOrder, getOrderByOrderId, updateOrderByOrderId, updateCheckoutSessionStatus
+│   ├── sheets.js             ← (LEGACY) logOrderToSheets — tidak lagi dipakai di order flow
 │   ├── email.js              ← sendOrderEmails (Resend)
 │   ├── whatsapp.js           ← sendWAResi (Fonnte)
 │   └── orderCache.js         ← (DEPRECATED — tidak dipakai, dapat dihapus)
@@ -314,10 +343,10 @@ backend/
 
 | Endpoint | Method | Handler | Peran |
 |---|---|---|---|
-| `/api/midtrans/create-token` | `POST` | `routes/midtrans.js` | Buat Midtrans Snap token (QRIS only) + log ke Sheets |
-| `/api/midtrans/callback` | `POST` | `routes/midtrans.js` | Webhook Midtrans — update status, baca file temp, kirim email, hapus file |
-| `/api/notify-resi` | `POST` | `routes/notify.js` | Kirim notif WhatsApp resi via Fonnte (dipanggil Google Apps Script) |
-| `/api/orders/:orderId` | `GET` | `routes/notify.js` | Ambil data order dari Google Sheets |
+| `/api/midtrans/create-token` | `POST` | `routes/midtrans.js` | Buat Midtrans Snap token (QRIS only) + insert ke Supabase orders |
+| `/api/midtrans/callback` | `POST` | `routes/midtrans.js` | Webhook Midtrans — update Supabase status, baca file temp, kirim email, hapus file |
+| `/api/notify-resi` | `POST` | `index.js` | Kirim notif WhatsApp resi via Fonnte |
+| `/api/orders/:orderId` | `GET` | `index.js` | Ambil data order dari Supabase |
 | `/health` | `GET` | `index.js` | Health check |
 
 ---
@@ -338,6 +367,8 @@ backend/
 | `MIDTRANS_SERVER_KEY` | Server key Midtrans (dipakai backend, bocor ke frontend — perlu dipindah) |
 | `NEXT_PUBLIC_MIDTRANS_CLIENT_KEY` | Client key Midtrans Snap |
 | `NEXT_PUBLIC_API_URL` | URL backend Express (`http://localhost:3001`) |
+| `NEXT_PUBLIC_SUPABASE_URL` | URL project Supabase (untuk frontend client) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Anon key Supabase (aman di browser) |
 | `REMOVE_BG_API_KEY` | API key Remove.bg (deprecated) |
 | `KIRIMIN_AJA_API_URL` | URL KiriminAja (deprecated) |
 
@@ -348,8 +379,10 @@ backend/
 | `APP_URL` | URL frontend untuk Midtrans redirect callbacks |
 | `MIDTRANS_SERVER_KEY` | Server key Midtrans |
 | `MIDTRANS_CLIENT_KEY` | Client key Midtrans |
-| `GOOGLE_SHEETS_ID` | ID spreadsheet Google Sheets |
-| `GOOGLE_SERVICE_ACCOUNT_JSON` | Path ke file service account JSON |
+| `SUPABASE_URL` | URL project Supabase |
+| `SUPABASE_SERVICE_KEY` | service_role key Supabase (full DB access — RAHASIA) |
+| `GOOGLE_SHEETS_ID` | ID spreadsheet Google Sheets (legacy) |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | Path ke file service account JSON (legacy) |
 | `RESEND_API_KEY` | API key Resend (email) |
 | `EMAIL_FROM` | Alamat pengirim email |
 | `EMAIL_PABRIK` | Email penerima order (pabrik/produksi) |
@@ -357,31 +390,51 @@ backend/
 
 ### Skema Data
 
-**Tidak ada database relasional / ORM.** Semua persistensi data menggunakan:
-
 1. **localStorage (browser)**:
-   - `happify_cart` → `CartItemWithCustomization[]` (keranjang belanja)
+   - `happify_cart` → `CartItemWithCustomization[]` (keranjang belanja — tetap dipakai)
    - `currentOrder` → data order sementara untuk halaman order-success
 
-2. **Google Sheets** (sheet `Orders`, kolom A–O):
+2. **Supabase (primary database)**:
 
-| Kolom | Field |
-|---|---|
-| A | Tanggal |
-| B | No Order |
-| C | Nama Pembeli |
-| D | Payment Method |
-| E | Total Harga (tanpa ongkir) |
-| F | Ongkir |
-| G | Email |
-| H | Nomor Telp |
-| I | Alamat |
-| J | Kode Pos |
-| K | Jabodetabek (Yes/No) |
-| L | Jawa-Bali (Yes/No) |
-| M | Tanggal Kirim ← admin isi |
-| N | Resi ← admin isi (trigger WA) |
-| O | Ekspedisi |
+**Tabel `orders`**:
+
+| Kolom | Tipe | Keterangan |
+|---|---|---|
+| `id` | uuid PK | Auto-generated |
+| `order_id` | text UNIQUE | Midtrans order ID |
+| `created_at` | timestamptz | Auto |
+| `customer_name` | text | firstName + lastName |
+| `payment_method` | text | Default: "qris" |
+| `subtotal` | numeric | Total produk (tanpa ongkir) |
+| `shipping_cost` | numeric | Ongkir |
+| `total_price` | numeric | subtotal + shipping_cost |
+| `email` | text | |
+| `phone` | text | |
+| `address` | text | |
+| `postal_code` | text | |
+| `region_tag` | text | Merge dari Jabodetabek/Jawa-Bali/Luar Jawa |
+| `shipping_courier` | text | Nama ekspedisi |
+| `tracking_number` | text | Resi (admin isi) |
+| `shipped_at` | timestamptz | Tanggal kirim |
+| `status` | text | pending / paid / shipped / failed |
+| `pdf_url` | text | Path ke file PDF (opsional) |
+| `cart_items` | jsonb | Full cart item detail |
+
+**Tabel `checkout_sessions`**:
+
+| Kolom | Tipe | Keterangan |
+|---|---|---|
+| `id` | uuid PK | ID sesi (dipakai di QR link) |
+| `name` | text | Nama customer (dari kiosk) |
+| `email` | text | |
+| `phone` | text | |
+| `cart_items` | jsonb | Snapshot cart saat QR dibuat |
+| `status` | text | pending / waiting_payment / paid |
+| `created_at` | timestamptz | Auto |
+
+3. **Google Sheets** (legacy — tidak lagi dipakai untuk order flow):
+   - Masih diinisialisasi di `config.js` untuk backward compat
+   - `sheets.js` service masih ada tapi tidak dipanggil dari midtrans.js
 
 **Produk** (hardcoded di `constants/mockup.ts`):
 

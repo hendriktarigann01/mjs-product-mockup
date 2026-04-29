@@ -1,11 +1,16 @@
+// Tujuan      : Entry point Express server — mount routes, middleware, listen
+// Caller      : node backend/index.js
+// Dependensi  : express, cors, routes/midtrans, services/supabase, services/whatsapp
+// Main Exports: app (Express instance)
+// Side Effects: HTTP server listen on PORT
+
 require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
 
-const { spreadsheetId } = require("./config");
 const midtransRouter = require("./routes/midtrans");
-const { getOrderFromSheets } = require("./services/sheets");
+const { getOrderByOrderId } = require("./services/supabase");
 const { sendWAResi } = require("./services/whatsapp");
 
 const app = express();
@@ -41,7 +46,7 @@ app.post("/api/notify-resi", async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 app.get("/api/orders/:orderId", async (req, res) => {
   try {
-    const order = await getOrderFromSheets(req.params.orderId);
+    const order = await getOrderByOrderId(req.params.orderId);
     if (!order) return res.status(404).json({ error: "Order not found" });
     res.json(order);
   } catch (error) {
@@ -58,9 +63,17 @@ app.use((err, req, res, next) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`✅ API running on http://localhost:${PORT}`);
-  console.log(`📊 Sheets: ${spreadsheetId}`);
+});
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`❌ PORT ${PORT} is already in use by another process.`);
+    process.exit(1);
+  } else {
+    console.error('❌ Server error:', err);
+  }
 });
 
 module.exports = app;

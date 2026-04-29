@@ -17,7 +17,7 @@ export function CartItemRow({ item, onUpdateQty, onRemove }: CartItemProps) {
       {/* Product info */}
       <div className="flex gap-4">
         {/* Thumbnail */}
-        <div className="w-20 h-20 bg-[#e0d9cc] rounded flex-shrink-0 overflow-hidden">
+        <div className="w-56 h-56 bg-white rounded flex-shrink-0 overflow-hidden">
           <img
             src={image}
             alt={name}
@@ -30,19 +30,12 @@ export function CartItemRow({ item, onUpdateQty, onRemove }: CartItemProps) {
 
         {/* Details */}
         <div className="flex flex-col gap-1">
-          <p className="font-serif text-lg text-stone-800">{name}</p>
-          <p className="font-mono text-xs text-stone-400">{formatRp(price)}</p>
-          <div className="mt-1 space-y-0.5">
-            <p className="font-mono text-[10px] text-stone-400">
-              Colors: {color}
-            </p>
-            <p className="font-mono text-[10px] text-stone-400">
-              Pattern: {pattern}
-            </p>
-            <p className="font-mono text-[10px] text-stone-400">
-              Photos: {photos}
-            </p>
-            <p className="font-mono text-[10px] text-stone-400 max-w-[200px] leading-relaxed">
+          <p className="font-serif text-2xl text-stone-800">{name}</p>
+          <div className="mt-1 space-y-0.5 text-lg">
+            <p className="font-mono text-stone-400">Colors: {color}</p>
+            <p className="font-mono text-stone-400">Pattern: {pattern}</p>
+            <p className="font-mono text-stone-400">Photos: {photos}</p>
+            <p className="font-mono text-stone-400 max-w-[200px] leading-relaxed">
               Notes: {notes}
             </p>
           </div>
@@ -75,13 +68,6 @@ export function CartItemRow({ item, onUpdateQty, onRemove }: CartItemProps) {
         >
           <Trash2 size={13} />
         </button>
-      </div>
-
-      {/* Total */}
-      <div className="w-28 text-right">
-        <p className="font-mono text-sm text-stone-800">
-          {formatRp(price * quantity)}
-        </p>
       </div>
     </div>
   );

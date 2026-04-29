@@ -74,7 +74,7 @@ export default function OrderErrorContent() {
   };
 
   return (
-    <main className="min-h-screen bg-[#F5F2ED] px-6 py-12">
+    <main className="min-h-screen bg-white px-6 py-12">
       <div className="w-full max-w-2xl mx-auto">
         {/* Header */}
         <Header
@@ -180,7 +180,7 @@ export default function OrderErrorContent() {
             Still having issues? Contact our support team
           </p>
           <p className="font-serif text-sm text-stone-800">
-            📧 support@happify.id | 📞 +62-812-3456-7890
+            📞 +62-851-5800-4568
           </p>
         </div>
 

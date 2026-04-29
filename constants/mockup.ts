@@ -2,6 +2,22 @@ import type { DesignItem } from "@/types/product";
 
 export const PRODUCTS = [
   {
+    id: "test-murah",
+    label: "Test Murah (Rp 1.000)",
+    file: "/products/shirt.png",
+    overlayFile: undefined,
+    isGiftCard: false,
+    textArea: undefined,
+    price: 1000,
+    weight: 100,
+    sizeChart: {
+      regular: [{ size: "ALL", length: 1, chest: 1, waist: 1 }],
+      kids: [],
+    },
+    colors: [{ name: "White", hex: "#FFFFFF", file: "/products/shirt.png" }],
+    category: "test",
+  },
+  {
     id: "fajamas",
     label: "T-Shirt",
     file: "/products/shirt.png",
@@ -52,14 +68,42 @@ export const PRODUCTS = [
     weight: 167,
   },
   {
-    id: "gift-card",
-    label: "Gift Card",
-    file: "/products/giftcard/birthday.webp",
+    id: "polo",
+    label: "Polo Shirt",
+    file: "/products/polo.png",
     overlayFile: undefined,
-    isGiftCard: true,
-    textArea: { x: 85, y: 22, w: 385, h: 400 },
-    price: 20000,
-    weight: 20,
+    isGiftCard: false,
+    textArea: undefined,
+    price: 328000,
+    weight: 260,
+    sizeChart: {
+      regular: [
+        { size: "S", length: 66, chest: 50, waist: 50 },
+        { size: "M", length: 70, chest: 53, waist: 53 },
+        { size: "L", length: 74, chest: 56, waist: 56 },
+        { size: "XL", length: 78, chest: 59, waist: 59 },
+      ],
+      kids: [],
+    },
+  },
+  {
+    id: "short",
+    label: "Short Pants",
+    file: "/products/short.png",
+    overlayFile: undefined,
+    isGiftCard: false,
+    textArea: undefined,
+    price: 250000,
+    weight: 180,
+    sizeChart: {
+      regular: [
+        { size: "S", length: 42, chest: 30, waist: 30 },
+        { size: "M", length: 44, chest: 32, waist: 32 },
+        { size: "L", length: 46, chest: 34, waist: 34 },
+        { size: "XL", length: 48, chest: 36, waist: 36 },
+      ],
+      kids: [],
+    },
   },
 ];
 

@@ -1,199 +1,278 @@
 /**
  * Order Success Page Content
+ * Tujuan      : Menampilkan detail pesanan setelah checkout (Midtrans atau Cashier)
+ * Caller      : app/order-success/page.tsx
+ * Dependensi  : @/lib/supabase, utils/cart-service
+ * Main Exports: OrderSuccessContent
  */
 
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { CheckCircle, Home, Download } from "lucide-react";
+import { CheckCircle, Home, Download, CreditCard, ShoppingBag, Clock } from "lucide-react";
 import { Header } from "@/components/common/Header";
 import { Footer } from "@/components/common/Footer";
 import { clearCart } from "@/utils/cart-service";
+import { supabase } from "@/lib/supabase";
 
 export default function OrderSuccessContent() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [orderData, setOrderData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Get order ID dari URL
     const orderId = searchParams.get("order_id");
-    const statusCode = searchParams.get("status_code");
-    const transactionStatus = searchParams.get("transaction_status");
 
-    console.log("Order Success:", { orderId, statusCode, transactionStatus });
+    const fetchOrder = async () => {
+      if (!orderId) {
+        setLoading(false);
+        return;
+      }
 
-    // Get order data dari localStorage
-    const currentOrder = localStorage.getItem("currentOrder");
-    if (currentOrder) {
-      const order = JSON.parse(currentOrder);
-      setOrderData({
-        ...order,
-        orderId,
-        transactionStatus,
-      });
-    }
+      try {
+        const { data, error } = await supabase
+          .from("orders")
+          .select("*")
+          .eq("order_id", orderId)
+          .maybeSingle();
 
-    // Clear cart
+        if (error) throw error;
+        if (data) {
+          setOrderData(data);
+        } else {
+          setError("Order not found");
+        }
+      } catch (err: any) {
+        console.error("Error fetching order:", err.message);
+        setError("Failed to load order details");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrder();
+
+    // Clear cart and local storage regardless
     clearCart();
     localStorage.removeItem("currentOrder");
   }, [searchParams]);
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-stone-200 border-t-stone-800 rounded-full animate-spin"></div>
+          <p className="font-mono text-sm text-stone-500 uppercase tracking-widest">Loading Order Details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !orderData) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 text-center">
+        <h2 className="font-serif text-3xl text-stone-800 mb-4">Oops!</h2>
+        <p className="font-mono text-sm text-stone-500 mb-8">{error || "No order details found."}</p>
+        <Link href="/" className="px-8 py-3 bg-stone-900 text-white rounded-full font-mono text-xs uppercase tracking-widest hover:bg-stone-800 transition-colors">
+          Back to Home
+        </Link>
+      </div>
+    );
+  }
+
+  const isCashier = orderData.payment_method?.toLowerCase() === "cashier";
+
   return (
-    <main className="min-h-screen bg-[#F5F2ED] px-6 py-12">
+    <main className="min-h-screen bg-white px-6 py-12">
       <div className="w-full max-w-2xl mx-auto">
-        {/* Header */}
         <Header
           breadcrumb="Home / Cart / Checkout / Success"
-          title="Payment Success!"
+          title={isCashier ? "Order Placed!" : "Payment Success!"}
         />
 
-        {/* Success Card */}
-        <div className="bg-green-50 border border-green-200 rounded-lg p-8 mb-8">
+        {/* Status Card */}
+        <div className={`rounded-2xl border p-8 mb-8 ${isCashier ? "bg-amber-50 border-amber-200" : "bg-emerald-50 border-emerald-200"}`}>
           <div className="flex flex-col items-center text-center">
-            {/* Success Icon */}
-            <CheckCircle className="w-16 h-16 text-green-500 mb-4" />
+            {isCashier ? (
+              <Clock className="w-16 h-16 text-amber-500 mb-4" />
+            ) : (
+              <CheckCircle className="w-16 h-16 text-emerald-500 mb-4" />
+            )}
 
-            {/* Description */}
-            <p className="font-mono text-sm text-stone-600 mb-6">
-              Thank you for your purchase. Your order is being prepared and will
-              be shipped soon.
+            <h2 className={`font-serif text-2xl mb-2 ${isCashier ? "text-amber-900" : "text-emerald-900"}`}>
+              {isCashier ? "Complete Your Payment" : "Thank You For Your Purchase"}
+            </h2>
+
+            <p className="font-mono text-sm text-stone-600 mb-6 max-w-md mx-auto">
+              {isCashier
+                ? "Silakan lakukan pembayaran di kasir atau mesin EDC kami untuk memproses pesanan Anda."
+                : "Pesanan Anda telah kami terima dan sedang diproses. Kami akan mengirimkan update via email."
+              }
             </p>
 
-            {/* Order ID */}
-            {orderData?.orderId && (
-              <div className="bg-white border border-green-200 rounded p-4 mb-6 w-full">
-                <p className="font-mono text-xs text-stone-400 mb-1">
-                  Order ID
-                </p>
-                <p className="font-mono text-lg font-semibold text-stone-800 break-all">
-                  {orderData.orderId}
-                </p>
-              </div>
+            <div className="bg-white/80 backdrop-blur-sm border rounded-xl p-4 mb-2 w-full shadow-sm">
+              <p className="font-mono text-[0.65rem] uppercase tracking-widest text-stone-400 mb-1">
+                Order Reference Number
+              </p>
+              <p className="font-mono text-2xl font-bold text-stone-800 break-all">
+                {orderData.order_id}
+              </p>
+            </div>
+
+            {isCashier && (
+              <p className="font-mono text-[0.65rem] text-amber-700 mt-2 uppercase font-semibold">
+                Tunjukkan nomor di atas kepada petugas kasir kami
+              </p>
             )}
           </div>
         </div>
 
-        {/* Order Details */}
-        {orderData && (
-          <div className="bg-white border border-stone-200 rounded-lg p-6 mb-8">
-            <h2 className="font-mono text-xs tracking-[0.25em] uppercase text-stone-400 mb-6">
-              Order Summary
+        {/* Order Summary */}
+        <div className="bg-white border border-stone-200 rounded-2xl overflow-hidden shadow-sm mb-8">
+          <div className="px-6 py-4 border-b border-stone-100 bg-stone-50/50 flex items-center justify-between">
+            <h2 className="font-mono text-[0.7rem] font-bold uppercase tracking-widest text-stone-500 flex items-center gap-2">
+              <ShoppingBag size={14} /> Order Summary
             </h2>
+            <span className="font-mono text-[0.6rem] px-2 py-0.5 bg-stone-200 rounded text-stone-600 uppercase font-bold">
+              {orderData.status || "Pending"}
+            </span>
+          </div>
 
-            {/* Customer Info */}
-            <div className="mb-6 pb-6 border-b border-stone-200">
-              <h3 className="font-mono text-xs uppercase text-stone-400 mb-3">
-                Shipping To
-              </h3>
-              <div className="space-y-2">
-                <p className="font-serif text-sm text-stone-700">
-                  {orderData.customerEmail}
+          <div className="p-6">
+            {/* Customer & Shipping */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-8 pb-8 border-b border-dashed border-stone-200">
+              <div>
+                <h3 className="font-mono text-[0.65rem] uppercase text-stone-400 mb-2 font-bold tracking-tighter">Shipping Address</h3>
+                <p className="font-serif text-sm text-stone-800 font-bold mb-1">{orderData.customer_name}</p>
+                <p className="font-mono text-[0.75rem] text-stone-600 leading-relaxed">
+                  {orderData.address}<br />
+                  {orderData.postal_code}
                 </p>
-                <p className="font-mono text-xs text-stone-600">
-                  {orderData.shippingAddress}
-                </p>
+              </div>
+              <div>
+                <h3 className="font-mono text-[0.65rem] uppercase text-stone-400 mb-2 font-bold tracking-tighter">Contact Info</h3>
+                <p className="font-mono text-[0.75rem] text-stone-600 mb-1">{orderData.email}</p>
+                <p className="font-mono text-[0.75rem] text-stone-600">{orderData.phone}</p>
               </div>
             </div>
 
             {/* Items */}
-            <div className="mb-6 pb-6 border-b border-stone-200">
-              <h3 className="font-mono text-xs uppercase text-stone-400 mb-3">
-                Items Ordered
-              </h3>
-              <div className="space-y-2">
-                {orderData.items?.map((item: any) => (
-                  <div
-                    key={item.id}
-                    className="flex justify-between text-xs font-mono"
-                  >
-                    <span className="text-stone-600">{item.name}</span>
-                    <span className="text-stone-700">x {item.quantity}</span>
-                    <span className="text-stone-800">
+            <div className="mb-8">
+              <h3 className="font-mono text-[0.65rem] uppercase text-stone-400 mb-4 font-bold tracking-tighter">Items Ordered</h3>
+              <div className="space-y-4">
+                {(orderData.cart_items || []).map((item: any, idx: number) => (
+                  <div key={idx} className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <p className="font-mono text-[0.75rem] text-stone-800 font-bold">{item.name}</p>
+                      <p className="font-mono text-[0.65rem] text-stone-500">Qty: {item.quantity}</p>
+                    </div>
+                    <p className="font-mono text-[0.75rem] text-stone-800">
                       Rp {(item.price * item.quantity).toLocaleString("id-ID")}
-                      ,00
-                    </span>
+                    </p>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Totals */}
-            <div>
-              <div className="space-y-2 mb-3">
-                <div className="flex justify-between text-xs font-mono">
-                  <span className="text-stone-500">Subtotal</span>
-                  <span className="text-stone-700">
-                    Rp{" "}
-                    {(
-                      orderData.items?.reduce(
-                        (sum: number, item: any) =>
-                          sum + item.price * item.quantity,
-                        0,
-                      ) || 0
-                    ).toLocaleString("id-ID")}
-                    ,00
-                  </span>
-                </div>
-                <div className="flex justify-between text-xs font-mono">
-                  <span className="text-stone-500">Shipping</span>
-                  <span className="text-stone-700">
-                    Rp {(orderData.shippingCost || 0).toLocaleString("id-ID")}
-                    ,00
-                  </span>
-                </div>
+            <div className="bg-stone-50 rounded-xl p-4 space-y-2 border border-stone-100">
+              <div className="flex justify-between text-[0.75rem] font-mono text-stone-500">
+                <span>Subtotal</span>
+                <span>Rp {(orderData.subtotal || 0).toLocaleString("id-ID")}</span>
               </div>
-              <div className="flex justify-between border-t border-stone-200 pt-3">
-                <span className="font-mono text-sm font-semibold text-stone-800">
-                  Total
-                </span>
-                <span className="font-mono text-lg font-semibold text-stone-800">
-                  Rp{" "}
-                  {(
-                    (orderData.items?.reduce(
-                      (sum: number, item: any) =>
-                        sum + item.price * item.quantity,
-                      0,
-                    ) || 0) + (orderData.shippingCost || 0)
-                  ).toLocaleString("id-ID")}
-                  ,00
+              <div className="flex justify-between text-[0.75rem] font-mono text-stone-500">
+                <span>Shipping ({orderData.shipping_courier || "Standard"})</span>
+                <span>Rp {(orderData.shipping_cost || 0).toLocaleString("id-ID")}</span>
+              </div>
+              <div className="flex justify-between items-center border-t border-stone-200 pt-3 mt-1">
+                <span className="font-mono text-sm font-bold text-stone-800 uppercase tracking-widest">Total</span>
+                <span className="font-mono text-xl font-bold text-stone-900">
+                  Rp {(orderData.total_price || 0).toLocaleString("id-ID")}
                 </span>
               </div>
             </div>
           </div>
-        )}
-
-        {/* What's Next */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
-          <h3 className="font-serif text-lg text-stone-800 mb-4">
-            What's Next?
-          </h3>
-          <ul className="space-y-3 font-mono text-sm text-stone-700">
-            <li>
-              ✓ <strong>1-2 hours:</strong> Order confirmation email
-            </li>
-            <li>
-              ✓ <strong>1-3 days:</strong> Item being prepared
-            </li>
-            <li>
-              ✓ <strong>3-5 days:</strong> Item shipped with tracking
-            </li>
-            <li>
-              ✓ <strong>5-7 days:</strong> Delivered to your address
-            </li>
-          </ul>
         </div>
 
-        {/* Support */}
-        <div className="bg-stone-100 rounded-lg p-6 text-center">
-          <p className="font-mono text-xs text-stone-600 mb-2">
-            Need help? Contact our support
-          </p>
-          <p className="text-sm text-stone-800">
-            📞 +62-812-3456-7890
-          </p>
+        {/* Instructions / Next Steps */}
+        <div className="grid grid-cols-1 gap-6 mb-12">
+          {isCashier ? (
+            <div className="bg-stone-900 text-stone-100 rounded-2xl p-8 flex flex-col sm:flex-row items-center gap-6 shadow-xl overflow-hidden relative">
+              <div className="absolute top-0 right-0 p-8 opacity-10">
+                <CreditCard size={120} />
+              </div>
+              <div className="relative z-10 flex-1">
+                <h3 className="font-serif text-2xl mb-2">Instruksi Pembayaran</h3>
+                <p className="font-mono text-xs text-stone-400 mb-6 uppercase tracking-widest">Langkah selanjutnya di Kasir</p>
+                <ul className="space-y-4 font-mono text-sm">
+                  <li className="flex gap-3">
+                    <span className="w-6 h-6 rounded-full bg-white text-stone-900 flex items-center justify-center flex-shrink-0 font-bold">1</span>
+                    <span>Tunjukkan **Nomor Order** di atas kepada kasir kami.</span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="w-6 h-6 rounded-full bg-white text-stone-900 flex items-center justify-center flex-shrink-0 font-bold">2</span>
+                    <span>Lakukan pembayaran menggunakan Tunai, Kartu Debit, atau Kartu Kredit (EDC).</span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="w-6 h-6 rounded-full bg-white text-stone-900 flex items-center justify-center flex-shrink-0 font-bold">3</span>
+                    <span>Kasir akan memproses pesanan Anda setelah pembayaran diterima.</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-stone-100 border border-stone-200 rounded-2xl p-8 shadow-sm">
+              <h3 className="font-serif text-2xl text-stone-800 mb-6">What's Next?</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                <div className="flex gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm flex-shrink-0 border border-stone-100">
+                    <ShoppingBag size={20} className="text-stone-700" />
+                  </div>
+                  <div>
+                    <h4 className="font-mono text-xs font-bold uppercase tracking-widest text-stone-800 mb-1">Preparation</h4>
+                    <p className="font-mono text-[0.7rem] text-stone-500 leading-relaxed">Pesanan Anda akan mulai disiapkan dalam 1-2 hari kerja.</p>
+                  </div>
+                </div>
+                <div className="flex gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm flex-shrink-0 border border-stone-100">
+                    <Download size={20} className="text-stone-700" />
+                  </div>
+                  <div>
+                    <h4 className="font-mono text-xs font-bold uppercase tracking-widest text-stone-800 mb-1">Update</h4>
+                    <p className="font-mono text-[0.7rem] text-stone-500 leading-relaxed">Nomor resi akan dikirimkan otomatis melalui WhatsApp/Email Anda.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Support & Actions */}
+        <div className="flex flex-col items-center gap-8">
+          <div className="text-center">
+            <p className="font-mono text-[0.6rem] text-stone-400 uppercase tracking-[0.3em] mb-3 font-bold">Need assistance?</p>
+            <p className="font-mono text-sm text-stone-800 bg-white px-6 py-2 rounded-full border border-stone-200 shadow-sm">
+              📞 +62-851-5800-4568
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+            <Link
+              href="/"
+              className="flex items-center justify-center gap-2 px-10 py-4 bg-stone-900 text-white rounded-full font-mono text-[0.7rem] uppercase tracking-widest hover:bg-stone-800 transition-all shadow-lg active:scale-95"
+            >
+              <Home size={16} /> Home
+            </Link>
+            <button
+              onClick={() => window.print()}
+              className="flex items-center justify-center gap-2 px-10 py-4 bg-white border border-stone-300 text-stone-700 rounded-full font-mono text-[0.7rem] uppercase tracking-widest hover:bg-stone-50 transition-all active:scale-95"
+            >
+              <Download size={16} /> Save Receipt
+            </button>
+          </div>
         </div>
 
         <Footer />

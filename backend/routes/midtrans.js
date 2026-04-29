@@ -1,16 +1,16 @@
 // Tujuan      : Route handler Midtrans — buat Snap token (QRIS only) dan proses webhook callback
 // Caller      : backend/index.js (mounted di /api/midtrans)
-// Dependensi  : snap (config), sheets, email
+// Dependensi  : snap (config), supabase service, email service
 // Main Exports: router (Express Router)
-// Side Effects: Midtrans Snap API, Google Sheets write, Resend email (hanya setelah paid)
+// Side Effects: Midtrans Snap API, Supabase orders write/update, Resend email customer (pabrik HOLD)
 //               File read/delete dari public/temp/{orderId}.pdf dan {orderId}.json
 
 const path = require("path");
 const fs = require("fs");
 const { Router } = require("express");
 const { snap } = require("../config");
-const { logOrderToSheets, updateOrderStatus } = require("../services/sheets");
-const { sendOrderEmails } = require("../services/email");
+const { insertOrder, updateOrderByOrderId } = require("../services/supabase");
+const { sendOrderEmails, sendOrderEmailCustomerOnly } = require("../services/email");
 
 const router = Router();
 
@@ -87,7 +87,8 @@ router.post("/create-token", async (req, res) => {
       transactionDetails,
       customerDetails,
       itemDetails = [],
-      pdfTempFilename, // orderId sebagai referensi file temp — menggantikan canvasPdfBase64
+      pdfTempFilename,   // orderId sebagai referensi file temp
+      designImageUrl,    // Cloudinary URL hasil capture canvas PNG (opsional)
     } = req.body;
 
     if (!transactionDetails?.orderId || !transactionDetails?.grossAmount) {
@@ -122,7 +123,50 @@ router.post("/create-token", async (req, res) => {
       `✅ Validated: ${orderId} | gross=${grossAmount} | items=${itemsSum}`,
     );
 
-    // Midtrans payload — QRIS only
+    const isCashier = req.body.paymentMethod === "cashier";
+
+    // Insert ke Supabase orders (dilakukan sebelum Midtrans / lsg return jika cashier)
+    const fullCartItems = req.body.fullCartItems || null;
+    const productUrl = req.body.productUrl || null;
+
+    const shippingItem = itemDetails.find((i) => i.id === "SHIPPING");
+    const ongkir = shippingItem ? parseInt(String(shippingItem.price)) : 0;
+    const totalHarga = grossAmount - ongkir;
+
+    await insertOrder({
+      orderId,
+      firstName: customerDetails.firstName,
+      lastName: customerDetails.lastName || "",
+      email: customerDetails.email,
+      phone: customerDetails.phone,
+      totalHarga,
+      ongkir,
+      address: customerDetails.address || "",
+      zip: customerDetails.zip || "",
+      kabupatenName: customerDetails.kabupatenName || "",
+      provinsiName: customerDetails.provinsiName || "",
+      shippingName: customerDetails.shippingName || shippingItem?.name || "",
+      paymentMethod: isCashier ? "Cashier" : "QRIS",
+      cartItems: itemDetails,
+      fullCartItems,
+      pdfUrl: designImageUrl || null,
+      productUrl,
+    });
+
+    if (designImageUrl) {
+      console.log(`[Cloudinary] Design image saved: ${designImageUrl}`);
+    }
+    console.log(`[TempFile] pdfTempFilename received: ${pdfTempFilename ?? "none"}`);
+
+    if (isCashier) {
+      console.log("✅ Order created (Payment at Cashier)");
+      return res.json({
+        token: null,
+        redirectUrl: `${process.env.APP_URL || "http://localhost:3000"}/order-success?order_id=${orderId}`,
+        isCashier: true,
+      });
+    }
+
     const midtransPayload = {
       transaction_details: { order_id: orderId, gross_amount: grossAmount },
       customer_details: {
@@ -148,32 +192,6 @@ router.post("/create-token", async (req, res) => {
 
     const transaction = await snap.createTransaction(midtransPayload);
     console.log("✅ Midtrans token created (QRIS only)");
-
-    // Ongkir = item dengan id "SHIPPING"
-    const shippingItem = itemDetails.find((i) => i.id === "SHIPPING");
-    const ongkir = shippingItem ? parseInt(String(shippingItem.price)) : 0;
-    const totalHarga = grossAmount - ongkir;
-
-    // Log ke Google Sheets
-    await logOrderToSheets({
-      orderId,
-      firstName: customerDetails.firstName,
-      lastName: customerDetails.lastName || "",
-      email: customerDetails.email,
-      phone: customerDetails.phone,
-      totalHarga,
-      ongkir,
-      address: customerDetails.address || "",
-      zip: customerDetails.zip || "",
-      kabupatenName: customerDetails.kabupatenName || "",
-      provinsiName: customerDetails.provinsiName || "",
-      shippingName: customerDetails.shippingName || shippingItem?.name || "",
-      paymentMethod: "QRIS",
-    });
-
-    console.log(
-      `[TempFile] pdfTempFilename received: ${pdfTempFilename ?? "none"}`,
-    );
 
     res.json({
       token: transaction.token,
@@ -209,22 +227,21 @@ router.post("/callback", async (req, res) => {
     };
     const status = statusMap[transaction_status] || transaction_status;
 
-    await updateOrderStatus(order_id, { status });
+    await updateOrderByOrderId(order_id, { status });
 
     if (status === "paid") {
       console.log(`✅ Order ${order_id} paid`);
 
-      // Baca file temp langsung dari disk (menggantikan orderCache)
+      // Baca file temp dari disk (untuk data order summary & kirim email customer)
       const { orderSummary, pdfBase64 } = readTempOrderFiles(order_id);
 
       if (orderSummary) {
-        console.log(
-          `📎 [Webhook] PDF attachment present: ${!!pdfBase64} for ${order_id}`,
+        // ── Email customer konfirmasi (TETAP AKTIF) ────────────────────────
+        // ── Email pabrik (HOLD — ganti dengan Cloudinary PNG, skip PDF) ───
+        sendOrderEmailCustomerOnly(orderSummary).catch((e) =>
+          console.error("⚠️ Email customer error (non-fatal):", e.message),
         );
-        sendOrderEmails(orderSummary, pdfBase64).catch((e) =>
-          console.error("⚠️ Email error (non-fatal):", e.message),
-        );
-        // Hapus file temp setelah email dikirim (fire-and-forget cleanup)
+        // Hapus file temp
         deleteTempOrderFiles(order_id);
       } else {
         console.warn(

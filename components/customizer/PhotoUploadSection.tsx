@@ -1,9 +1,9 @@
 "use client";
 
-import { useRef, useState, ChangeEvent } from "react";
+import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { useFaceSegmentation } from "@/hooks/useFaceSegmentation";
-import { ArrowUp, Loader, Check, X } from "lucide-react";
+import { Camera, Loader, Check, X } from "lucide-react";
 
 interface PhotoSlot {
   id: number;
@@ -22,18 +22,93 @@ interface Props {
 
 type SlotStatus = "idle" | "processing" | "done" | "error";
 
+function CameraModal({
+  onCapture,
+  onClose,
+}: {
+  onCapture: (dataUrl: string) => void;
+  onClose: () => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+
+  useEffect(() => {
+    let activeStream: MediaStream | null = null;
+    navigator.mediaDevices
+      .getUserMedia({ video: { facingMode: "user" } })
+      .then((s) => {
+        activeStream = s;
+        setStream(s);
+        if (videoRef.current) {
+          videoRef.current.srcObject = s;
+        }
+      })
+      .catch((err) => {
+        console.error("Camera access denied:", err);
+        alert("Camera access is required to take a photo.");
+        onClose();
+      });
+
+    return () => {
+      if (activeStream) {
+        activeStream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [onClose]);
+
+  const capture = () => {
+    if (videoRef.current) {
+      const canvas = document.createElement("canvas");
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL("image/png");
+        onCapture(dataUrl);
+      }
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl overflow-hidden shadow-2xl max-w-md w-full relative border border-stone-200">
+        <div className="p-4 border-b flex justify-between items-center bg-stone-50">
+          <h3 className="font-bold text-stone-800">Take a Photo</h3>
+          <button onClick={onClose} className="p-2 bg-stone-200 rounded-full hover:bg-stone-300">
+            <X size={20} />
+          </button>
+        </div>
+        <div className="relative aspect-square bg-black flex items-center justify-center">
+          {!stream ? (
+            <p className="text-white">Starting camera...</p>
+          ) : (
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              className="w-full h-full object-cover scale-x-[-1]"
+            />
+          )}
+        </div>
+        <div className="p-6 flex justify-center bg-stone-50">
+          <button
+            onClick={capture}
+            disabled={!stream}
+            className="w-16 h-16 rounded-full border-4 border-stone-300 bg-white shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-transform disabled:opacity-50"
+          >
+            <div className="w-12 h-12 rounded-full bg-stone-800" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PhotoUploadSection({ onPhotosChange }: Props) {
   const [photos, setPhotos] = useState<(string | null)[]>([null, null, null]);
-  const [statuses, setStatuses] = useState<SlotStatus[]>([
-    "idle",
-    "idle",
-    "idle",
-  ]);
-  const inputRefs = [
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-    useRef<HTMLInputElement>(null),
-  ];
+  const [statuses, setStatuses] = useState<SlotStatus[]>(["idle", "idle", "idle"]);
+  const [activeCameraSlot, setActiveCameraSlot] = useState<number | null>(null);
   const { extractFace } = useFaceSegmentation();
 
   const updatePhoto = (index: number, url: string | null) => {
@@ -51,24 +126,19 @@ export default function PhotoUploadSection({ onPhotosChange }: Props) {
     });
   };
 
-  const handleFileChange = async (
-    e: ChangeEvent<HTMLInputElement>,
-    index: number,
-  ) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = "";
+  const handleCapture = async (dataUrl: string) => {
+    if (activeCameraSlot === null) return;
+    const index = activeCameraSlot;
+    setActiveCameraSlot(null);
 
-    const rawUrl = URL.createObjectURL(file);
     updateStatus(index, "processing");
 
     try {
-      const faceUrl = await extractFace(rawUrl);
-      URL.revokeObjectURL(rawUrl);
+      const faceUrl = await extractFace(dataUrl);
       updatePhoto(index, faceUrl);
       updateStatus(index, "done");
     } catch {
-      updatePhoto(index, rawUrl);
+      updatePhoto(index, dataUrl);
       updateStatus(index, "error");
     }
 
@@ -85,6 +155,13 @@ export default function PhotoUploadSection({ onPhotosChange }: Props) {
 
   return (
     <div className="flex flex-col gap-3">
+      {activeCameraSlot !== null && (
+        <CameraModal
+          onCapture={handleCapture}
+          onClose={() => setActiveCameraSlot(null)}
+        />
+      )}
+
       {/* Info layout */}
       {activeCount >= 2 && (
         <p className="font-mono text-[10px] text-stone-300 tracking-wider">
@@ -110,7 +187,7 @@ export default function PhotoUploadSection({ onPhotosChange }: Props) {
               <div className="relative">
                 {/* Preview jika sudah ada foto */}
                 {isActive ? (
-                  <div className="relative w-full aspect-square rounded-xl overflow-hidden border-2 border-stone-700 bg-stone-100">
+                  <div className="relative w-[90px] h-[90px] rounded-xl overflow-hidden border-2 border-stone-700 bg-stone-100">
                     <Image
                       src={photo!}
                       alt={label}
@@ -129,18 +206,17 @@ export default function PhotoUploadSection({ onPhotosChange }: Props) {
                   /* Upload slot */
                   <button
                     onClick={() =>
-                      status === "idle" && inputRefs[index].current?.click()
+                      status === "idle" && setActiveCameraSlot(index)
                     }
                     disabled={status === "processing"}
                     className={`
-                      w-full aspect-square rounded-xl border-2 border-dashed
+                     w-[90px] h-[90px] rounded-xl border-2 border-dashed
                       flex flex-col items-center justify-center gap-1
                       transition-all duration-200
                       disabled:cursor-not-allowed
-                      ${
-                        status === "processing"
-                          ? "border-blue-300 bg-blue-50 animate-pulse"
-                          : "border-stone-200 hover:border-stone-400 hover:bg-stone-50"
+                      ${status === "processing"
+                        ? "border-blue-300 bg-blue-50 animate-pulse"
+                        : "border-stone-200 hover:border-stone-400 hover:bg-stone-50"
                       }
                     `}
                   >
@@ -150,11 +226,8 @@ export default function PhotoUploadSection({ onPhotosChange }: Props) {
                         className="text-blue-400 animate-spin"
                       />
                     ) : (
-                      <ArrowUp size={16} className="text-stone-300" />
+                      <Camera size={16} className="text-stone-300" />
                     )}
-                    <span className="font-mono text-[8px] uppercase tracking-wider text-stone-300">
-                      {status === "processing" ? "Processing..." : "Upload"}
-                    </span>
                   </button>
                 )}
 
@@ -165,14 +238,6 @@ export default function PhotoUploadSection({ onPhotosChange }: Props) {
                   </div>
                 )}
               </div>
-
-              <input
-                ref={inputRefs[index]}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => handleFileChange(e, index)}
-              />
             </div>
           );
         })}

@@ -91,7 +91,7 @@ export default function ShippingMethod({
         origin: ORIGIN_DISTRICT_ID,
         destination: `dist_${kecamatanId}`,
         weight: String(process.env.NEXT_PUBLIC_PACKAGE_WEIGHT_KG ?? "1"),
-        courier: COURIERS.join(","),
+        courier: "lion",
       });
 
       const res = await fetch(

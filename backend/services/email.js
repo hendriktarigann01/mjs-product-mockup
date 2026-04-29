@@ -1,3 +1,9 @@
+// Tujuan      : Kirim email konfirmasi order via Resend
+// Caller      : backend/routes/midtrans.js (callback webhook)
+// Dependensi  : resend (config), templates/emailCustomer, templates/emailPabrik
+// Main Exports: sendOrderEmails, sendOrderEmailCustomerOnly
+// Side Effects: HTTP call ke Resend API
+
 const { resend, EMAIL_FROM, EMAIL_PABRIK } = require("../config");
 const { emailCustomerConfirmation } = require("../templates/emailCustomer");
 const { emailPabrik } = require("../templates/emailPabrik");
@@ -55,4 +61,27 @@ async function sendOrderEmails(order, canvasPdfBase64) {
   }
 }
 
-module.exports = { sendOrderEmails };
+/**
+ * Kirim hanya email konfirmasi ke customer (pabrik email di-hold).
+ * Dipakai sementara selama fitur PDF ke pabrik diganti Cloudinary PNG.
+ */
+async function sendOrderEmailCustomerOnly(order) {
+  try {
+    const { data, error } = await resend.emails.send({
+      from: EMAIL_FROM,
+      to: order.email,
+      subject: `Order Confirmed – ${order.orderId}`,
+      html: emailCustomerConfirmation(order, formatRp),
+    });
+    if (error) {
+      console.error(`❌ Email customer failed to ${order.email}:`, error);
+    } else {
+      console.log(`✅ Email customer sent: ${order.email} | id=${data?.id}`);
+    }
+  } catch (err) {
+    console.error(`❌ Email customer exception to ${order.email}:`, err.message);
+  }
+  console.log(`[⏸ HOLD] Email pabrik ditunda — Cloudinary PNG flow belum aktif`);
+}
+
+module.exports = { sendOrderEmails, sendOrderEmailCustomerOnly };

@@ -18,7 +18,6 @@ export const INITIAL_CART: CartItem[] = [
 
 // Trust badges shown in cart
 export const TRUST_BADGES = [
-  { title: "Free Shipping", sub: "For Java-Bali" },
   { title: "Soft, Comfy", sub: "and Durable" },
   { title: "Specially Made", sub: "We Do Our Best" },
   { title: "30 Days", sub: "Happy Guarantee" },

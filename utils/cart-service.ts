@@ -14,6 +14,9 @@ export interface CartItemWithCustomization extends CartItem {
     color?: string;
     photos?: (string | null)[];
     giftCardUrl?: string | null;
+    /** Cloudinary URL hasil capture canvas PNG saat add to cart */
+    designImageUrl?: string;
+    size?: string | null;
   };
 }
 
