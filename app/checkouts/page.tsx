@@ -298,7 +298,7 @@ function CheckoutContent() {
             } catch { }
           }
 
-          window.location.href = "/order-success";
+          window.location.href = `/order-success?order_id=${encodeURIComponent(result.order_id || orderId)}`;
         },
         onPending: () => {
           // Update checkout session → waiting_payment jika dari QR flow
@@ -309,10 +309,10 @@ function CheckoutContent() {
               .eq("id", sessionId)
               .then(() => { });
           }
-          window.location.href = "/order-pending";
+          window.location.href = `/order-pending?order_id=${encodeURIComponent(orderId)}`;
         },
         onError: () => {
-          window.location.href = "/order-error";
+          window.location.href = `/order-error?order_id=${encodeURIComponent(orderId)}`;
         },
         onClose: () => {
           console.log("Customer closed the popup");

@@ -38,7 +38,7 @@ export function initMidtrans(
   script.src =
     environment === "sandbox"
       ? "https://app.sandbox.midtrans.com/snap/snap.js"
-      : "https://app.midtrans.com/snap/snap.js";
+      : "https://app.sandbox.midtrans.com/snap/snap.js";
   script.setAttribute("data-client-key", clientKey);
   script.async = true;
   document.head.appendChild(script);

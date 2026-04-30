@@ -162,7 +162,7 @@ router.post("/create-token", async (req, res) => {
       console.log("✅ Order created (Payment at Cashier)");
       return res.json({
         token: null,
-        redirectUrl: `${process.env.APP_URL || "https://happify.id"}/order-success?order_id=${orderId}`,
+        redirectUrl: `${process.env.APP_URL || "http://localhost:3000"}/order-success?order_id=${encodeURIComponent(orderId)}`,
         isCashier: true,
       });
     }
@@ -184,9 +184,9 @@ router.post("/create-token", async (req, res) => {
         }))
         .filter((item) => item.price > 0 && item.quantity > 0),
       callbacks: {
-        finish: `${process.env.APP_URL || "https://happify.id"}/order-success`,
-        error: `${process.env.APP_URL || "https://happify.id"}/order-error`,
-        pending: `${process.env.APP_URL || "https://happify.id"}/order-pending`,
+        finish: `${process.env.APP_URL || "http://localhost:3000"}/order-success`,
+        error: `${process.env.APP_URL || "http://localhost:3000"}/order-error`,
+        pending: `${process.env.APP_URL || "http://localhost:3000"}/order-pending`,
       },
     };
 
