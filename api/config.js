@@ -4,34 +4,47 @@
 // Main Exports: snap, sheets, auth, spreadsheetId, resend, supabaseAdmin, EMAIL_FROM, EMAIL_PABRIK, FONNTE_TOKEN
 // Side Effects: Tidak ada — hanya inisialisasi client
 
-const { Snap } = require("midtrans-client");
+const midtransClient = require("midtrans-client");
 const { google } = require("googleapis");
 const { Resend } = require("resend");
 const { createClient } = require("@supabase/supabase-js");
+const path = require("path");
 
 // ── Midtrans ──────────────────────────────────────────────────────────────────
-const snap = new Snap({
+if (!process.env.MIDTRANS_SERVER_KEY) {
+    console.warn("⚠️ MIDTRANS_SERVER_KEY is missing");
+}
+
+const snap = new midtransClient.Snap({
     isProduction: process.env.MIDTRANS_IS_PRODUCTION === "true", 
-    serverKey: process.env.MIDTRANS_SERVER_KEY,
-    clientKey: process.env.MIDTRANS_CLIENT_KEY,
+    serverKey: process.env.MIDTRANS_SERVER_KEY || "",
+    clientKey: process.env.MIDTRANS_CLIENT_KEY || "",
 });
 
-// ── Google Sheets (LEGACY — tetap ada untuk backward compat / notify-resi) ───
+// ── Google Sheets (LEGACY) ────────────────────────────────────────────────────
 const sheets = google.sheets("v4");
+const serviceAccountPath = process.env.GOOGLE_SERVICE_ACCOUNT_JSON 
+    ? path.resolve(__dirname, process.env.GOOGLE_SERVICE_ACCOUNT_JSON)
+    : null;
+
 const auth = new google.auth.GoogleAuth({
-    keyFile: process.env.GOOGLE_SERVICE_ACCOUNT_JSON,
+    keyFile: serviceAccountPath,
     scopes: ["https://www.googleapis.com/auth/spreadsheets"],
 });
 const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
 
-// ── Supabase (service-role key — full DB access) ─────────────────────────────
+// ── Supabase ──────────────────────────────────────────────────────────────────
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
+    console.warn("⚠️ SUPABASE_URL or SUPABASE_SERVICE_KEY is missing");
+}
+
 const supabaseAdmin = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_KEY,
+    process.env.SUPABASE_URL || "",
+    process.env.SUPABASE_SERVICE_KEY || "",
 );
 
 // ── Resend (Email) ────────────────────────────────────────────────────────────
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY || "no-key");
 const EMAIL_FROM = process.env.EMAIL_FROM;
 const EMAIL_PABRIK = process.env.EMAIL_PABRIK;
 
