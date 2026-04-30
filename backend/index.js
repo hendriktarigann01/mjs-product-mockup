@@ -56,19 +56,8 @@ app.use((err, req, res, next) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
-  const server = app.listen(PORT, () => {
-    console.log(`API running on http://localhost:${PORT}`);
-  });
+const PORT = process.env.PORT || 3001;
 
-  server.on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-      console.error(`PORT ${PORT} is already in use by another process.`);
-      process.exit(1);
-    } else {
-      console.error('Server error:', err);
-    }
-  });
-}
-
-module.exports = app;
+const server = app.listen(PORT, () => {
+  console.log(`API running on port ${PORT}`);
+});
