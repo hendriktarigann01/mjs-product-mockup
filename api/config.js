@@ -11,37 +11,45 @@ const { createClient } = require("@supabase/supabase-js");
 const path = require("path");
 
 // ── Midtrans ──────────────────────────────────────────────────────────────────
-if (!process.env.MIDTRANS_SERVER_KEY) {
-    console.warn("⚠️ MIDTRANS_SERVER_KEY is missing");
+let snap;
+try {
+    snap = new midtransClient.Snap({
+        isProduction: process.env.MIDTRANS_IS_PRODUCTION === "true", 
+        serverKey: process.env.MIDTRANS_SERVER_KEY || "",
+        clientKey: process.env.MIDTRANS_CLIENT_KEY || "",
+    });
+} catch (e) {
+    console.error("❌ Midtrans init error:", e.message);
 }
 
-const snap = new midtransClient.Snap({
-    isProduction: process.env.MIDTRANS_IS_PRODUCTION === "true", 
-    serverKey: process.env.MIDTRANS_SERVER_KEY || "",
-    clientKey: process.env.MIDTRANS_CLIENT_KEY || "",
-});
-
 // ── Google Sheets (LEGACY) ────────────────────────────────────────────────────
-const sheets = google.sheets("v4");
-const serviceAccountPath = process.env.GOOGLE_SERVICE_ACCOUNT_JSON 
-    ? path.resolve(__dirname, process.env.GOOGLE_SERVICE_ACCOUNT_JSON)
-    : null;
+let sheets = null;
+let auth = null;
+try {
+    sheets = google.sheets("v4");
+    const serviceAccountPath = process.env.GOOGLE_SERVICE_ACCOUNT_JSON 
+        ? path.resolve(__dirname, process.env.GOOGLE_SERVICE_ACCOUNT_JSON)
+        : null;
 
-const auth = new google.auth.GoogleAuth({
-    keyFile: serviceAccountPath,
-    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-});
+    auth = new google.auth.GoogleAuth({
+        keyFile: serviceAccountPath,
+        scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+    });
+} catch (e) {
+    console.error("❌ Google Auth init error:", e.message);
+}
 const spreadsheetId = process.env.GOOGLE_SHEETS_ID;
 
 // ── Supabase ──────────────────────────────────────────────────────────────────
-if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
-    console.warn("⚠️ SUPABASE_URL or SUPABASE_SERVICE_KEY is missing");
+let supabaseAdmin = null;
+try {
+    supabaseAdmin = createClient(
+        process.env.SUPABASE_URL || "",
+        process.env.SUPABASE_SERVICE_KEY || "",
+    );
+} catch (e) {
+    console.error("❌ Supabase init error:", e.message);
 }
-
-const supabaseAdmin = createClient(
-    process.env.SUPABASE_URL || "",
-    process.env.SUPABASE_SERVICE_KEY || "",
-);
 
 // ── Resend (Email) ────────────────────────────────────────────────────────────
 const resend = new Resend(process.env.RESEND_API_KEY || "no-key");

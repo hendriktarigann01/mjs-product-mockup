@@ -14,11 +14,14 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
   credentials: true
 }));
-app.options("*", cors()); // Handle preflight requests
+app.options("*", cors()); 
 
 app.use(express.json({ limit: "150mb" }));
 
 // ── Routes ────────────────────────────────────────────────────────────────────
+app.get("/api/test", (req, res) => res.json({ message: "Backend is active!", env: process.env.NODE_ENV }));
+app.get("/", (req, res) => res.json({ message: "Happify API Root" }));
+
 app.use("/api/midtrans", midtransRouter);
 
 // ═══════════════════════════════════════════════════════════════════════════════

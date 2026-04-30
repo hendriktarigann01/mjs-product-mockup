@@ -254,7 +254,7 @@ function CheckoutContent() {
 
       // KHUSUS CASHIER: Langsung simpan ke Supabase & Redirect
       if (method === "cashier") {
-        await supabase.from("orders").insert([
+        const { error: insertError } = await supabase.from("orders").insert([
           {
             order_id: orderId,
             customer_name: [firstName, lastName].filter(Boolean).join(" "),
@@ -275,6 +275,11 @@ function CheckoutContent() {
             status: "pending",
           },
         ]);
+
+        if (insertError) {
+          console.error("❌ Gagal menyimpan order kasir:", insertError);
+          throw new Error(`Database error: ${insertError.message}`);
+        }
 
         localStorage.setItem(
           "currentOrder",
