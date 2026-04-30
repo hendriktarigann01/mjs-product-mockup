@@ -325,7 +325,7 @@ mjs-product-mockup/
 Struktur modular setelah separation of concern:
 
 ```
-backend/
+api/
 ├── index.js                  ← Entry point: middleware, mount routes, listen
 ├── config.js                 ← Inisialisasi Snap, Supabase admin, Resend, env vars
 ├── routes/
