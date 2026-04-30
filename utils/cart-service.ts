@@ -17,6 +17,7 @@ export interface CartItemWithCustomization extends CartItem {
     /** Cloudinary URL hasil capture canvas PNG saat add to cart */
     designImageUrl?: string;
     size?: string | null;
+    productUrl?: string | null;
   };
 }
 

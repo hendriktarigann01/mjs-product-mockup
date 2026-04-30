@@ -71,7 +71,7 @@ export default function OrderSuccessContent() {
             table: "orders",
             filter: `order_id=eq.${orderId}`,
           },
-          (payload) => {
+          (payload: { new: any }) => {
             console.log("Order updated in real-time:", payload.new);
             setOrderData(payload.new);
           }

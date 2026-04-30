@@ -73,7 +73,7 @@ export function QRCheckoutModal({ isOpen, onClose, cartItems }: QRCheckoutModalP
             table: "checkout_sessions",
             filter: `id=eq.${data.id}`,
           },
-          (payload) => {
+          (payload: { new: any }) => {
             const newStatus = payload.new.status;
             if (newStatus === "paid" || newStatus === "waiting_payment") {
               console.log("✅ Checkout session used, closing modal...");
