@@ -86,48 +86,49 @@ export default function ShippingMethod({
     setError(null);
 
     try {
-      const body = new URLSearchParams({
-        api_key: process.env.NEXT_PUBLIC_BINDERBYTE_API_KEY ?? "",
-        origin: ORIGIN_DISTRICT_ID,
-        destination: `dist_${kecamatanId}`,
-        weight: String(process.env.NEXT_PUBLIC_PACKAGE_WEIGHT_KG ?? "1"),
-        courier: "lion",
-      });
+      const couriers = ["jne", "sicepat", "jnt", "lion"];
+      const services: ShippingService[] = [];
 
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BINDERBYTE_API_URL}/v1/cost`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: body.toString(),
-        },
+      const results = await Promise.allSettled(
+        couriers.map(async (c) => {
+          const body = new FormData();
+          body.append("api_key", process.env.NEXT_PUBLIC_BINDERBYTE_API_KEY ?? "");
+          body.append("origin", ORIGIN_DISTRICT_ID);
+          body.append("destination", `dist_${kecamatanId}`);
+          body.append("weight", String(process.env.NEXT_PUBLIC_PACKAGE_WEIGHT_KG ?? "1"));
+          body.append("courier", c);
+
+          const res = await fetch("https://api.binderbyte.com/v1/cost", {
+            method: "POST",
+            body,
+          });
+          return res.json();
+        })
       );
 
-      const json = await res.json();
+      for (const result of results) {
+        if (result.status !== "fulfilled") continue;
+        const json = result.value;
+        if (json.code !== "200" || !json.data?.results) continue;
 
-      if (json.code !== "200") {
-        setError(json.message ?? "Gagal mengambil ongkos kirim.");
-        return;
-      }
-
-      const services: ShippingService[] = [];
-      (json.data.results as ApiCostResult[]).forEach((courier) => {
-        courier.costs.forEach((cost) => {
-          services.push({
-            courierCode: courier.code,
-            courierName: courier.name,
-            service: cost.service,
-            type: cost.type,
-            price: parseInt(cost.price, 10),
-            estimated: cost.estimated,
-            name: `${courier.name} (${cost.service})`,
+        (json.data.results as ApiCostResult[]).forEach((courier) => {
+          courier.costs.forEach((cost) => {
+            services.push({
+              courierCode: courier.code,
+              courierName: courier.name,
+              service: cost.service,
+              type: cost.type,
+              price: parseInt(cost.price, 10),
+              estimated: cost.estimated,
+              name: `${courier.name} (${cost.service})`,
+            });
           });
         });
-      });
+      }
 
       setOptions(services);
       if (services.length > 0) onSelect(services[0]);
-      setFetchedFor(kecamatanId); // ← mark fetched, no duplicate requests
+      setFetchedFor(kecamatanId);
     } catch {
       setError("Terjadi kesalahan. Silakan coba lagi.");
     } finally {

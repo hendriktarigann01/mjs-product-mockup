@@ -10,7 +10,6 @@ import { useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import { DESIGN_PAIRS } from "@/constants/mockup";
 
 interface Props {
-  designSrc: string | null;
   shirtColor: string;
   productFile: string;
   overlayFile?: string;
@@ -114,7 +113,7 @@ export interface CanvasHandle {
 }
 
 const Canvas = forwardRef<CanvasHandle, Props>(function Canvas(
-  { designSrc, shirtColor, productFile, overlayFile, photos },
+  { shirtColor, productFile, overlayFile, photos },
   ref,
 ) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -148,33 +147,13 @@ const Canvas = forwardRef<CanvasHandle, Props>(function Canvas(
       const shirtImg = await loadImage(productFile);
       const tintedShirt = buildTintedShirt(shirtImg, shirtColor, SIZE);
 
-      const usePhotos = activePhotos.length > 0;
-
-      if (!designSrc && !usePhotos) {
-        ctx.drawImage(tintedShirt, 0, 0);
-        if (overlayFile) {
-          const ov = await loadImage(overlayFile);
-          ctx.drawImage(ov, 0, 0, SIZE, SIZE);
-        }
-        return;
-      }
-
       let patCanvas: HTMLCanvasElement;
 
-      // ─── KOMBINASI DESAIN & FOTO ───────────────────────────────────────────
-      if (usePhotos || designSrc) {
+      // ─── KOMBINASI DESAIN (FOTO / PATTERN) ─────────────────────────────────
+      if (activePhotos.length > 0) {
         const photoImgs = await Promise.all(activePhotos.map(loadImage));
-        
-        // Jika ada designSrc, masukkan ke dalam deretan gambar pattern
-        if (designSrc) {
-          const designImg = await loadImage(designSrc);
-          // Masukkan di awal atau di akhir? Kita masukkan di awal agar jadi elemen utama pattern
-          photoImgs.unshift(designImg);
-        }
-
         patCanvas = await buildPhotoPattern(photoImgs, SIZE);
       } else {
-        // Fallback jika tidak ada apa-apa (harusnya tidak masuk sini karena sudah ada guard di atas)
         patCanvas = document.createElement("canvas");
         patCanvas.width = SIZE;
         patCanvas.height = SIZE;
@@ -201,7 +180,7 @@ const Canvas = forwardRef<CanvasHandle, Props>(function Canvas(
     };
 
     render().catch(console.error);
-  }, [designSrc, shirtColor, productFile, overlayFile, activePhotos.join(",")]);
+  }, [shirtColor, productFile, overlayFile, activePhotos.join(",")]);
 
   return (
     <canvas

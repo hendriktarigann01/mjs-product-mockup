@@ -9,7 +9,6 @@ export function useCustomizer() {
 
   // ── Shared product state ───────────────────────────────────────────────────
   const [shirtColor, setShirtColor] = useState("#ffffff");
-  const [activeDesign, setActiveDesign] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [photos, setPhotos] = useState<(string | null)[]>([null, null, null]);
 
@@ -34,7 +33,6 @@ export function useCustomizer() {
     (id: ProductId) => {
       setActiveProduct(id);
       setStep(1);
-      setActiveDesign(null);
       setSelectedSize(null);
       setPhotos([null, null, null]);
       setGiftCardUrl(null);
@@ -52,7 +50,6 @@ export function useCustomizer() {
   }, [step]);
 
   const reset = useCallback(() => {
-    setActiveDesign(null);
     setShirtColor("#ffffff");
     setSelectedSize(null);
     setPhotos([null, null, null]);
@@ -76,8 +73,6 @@ export function useCustomizer() {
     // shared
     shirtColor,
     setShirtColor,
-    activeDesign,
-    setActiveDesign,
     selectedSize,
     setSelectedSize,
     photos,

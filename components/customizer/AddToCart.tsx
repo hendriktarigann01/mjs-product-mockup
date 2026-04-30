@@ -7,12 +7,14 @@ interface AddToCartModalProps {
     isOpen: boolean;
     onClose: () => void;
     onViewCart: () => void;
+    onShopMore?: () => void;
 }
 
 export default function AddToCartModal({
     isOpen,
     onClose,
     onViewCart,
+    onShopMore,
 }: AddToCartModalProps) {
     // Close on ESC
     useEffect(() => {
@@ -161,7 +163,10 @@ export default function AddToCartModal({
                     {/* CTA Buttons */}
                     <div className="flex gap-3">
                         <button
-                            onClick={onClose}
+                            onClick={() => {
+                                onShopMore?.();
+                                onClose();
+                            }}
                             className="atc-btn flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-base font-bold text-slate-600 border border-slate-200 bg-slate-50" 
                         >
                             Shop More

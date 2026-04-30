@@ -222,7 +222,7 @@ export function QRCheckoutModal({ isOpen, onClose, cartItems }: QRCheckoutModalP
             onClick={handleClose}
             className="w-full py-3 text-stone-500 text-base font-medium hover:text-stone-800 transition-colors"
           >
-            {qrUrl ? "Done / Reset" : "Cancel"}
+            {qrUrl ? "Done" : "Cancel"}
           </button>
         </div>
       </div>

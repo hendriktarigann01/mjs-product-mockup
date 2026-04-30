@@ -652,7 +652,7 @@ export default function DashboardPage() {
       {/* ── Confirmation Modal ── */}
       {confirmModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-[16px] w-full max-sm p-6 text-center shadow-2xl animate-in zoom-in duration-200">
+          <div className="bg-white rounded-[16px] w-full max-w-sm p-6 text-center shadow-2xl animate-in zoom-in duration-200">
             <h3 className="text-lg font-bold text-stone-800 mb-2">Konfirmasi Simpan</h3>
             <p className="text-sm text-stone-500 mb-6">Apakah Anda yakin ingin menyimpan perubahan data pesanan ini?</p>
             <div className="flex gap-3 justify-center">

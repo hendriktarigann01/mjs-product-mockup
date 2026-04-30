@@ -18,6 +18,8 @@ const SLOTS: PhotoSlot[] = [
 
 interface Props {
   onPhotosChange: (photos: (string | null)[]) => void;
+  onClose: () => void;
+  onActivity?: () => void;
 }
 
 type SlotStatus = "idle" | "processing" | "done" | "error";
@@ -72,9 +74,20 @@ function CameraModal({
 
   // Separate effect to handle srcObject assignment when stream and ref are ready
   useEffect(() => {
-    if (stream && videoRef.current) {
-      videoRef.current.srcObject = stream;
-      videoRef.current.play().catch(e => console.error("Error playing video:", e));
+    const video = videoRef.current;
+    if (stream && video) {
+      // Avoid re-assigning the same stream
+      if (video.srcObject !== stream) {
+        video.srcObject = stream;
+      }
+      
+      // Use a flag or check if play is already in progress is hard, 
+      // so we just catch and filter the specific AbortError
+      video.play().catch(e => {
+        if (e.name !== "AbortError") {
+          console.error("Error playing video:", e);
+        }
+      });
     }
   }, [stream]);
 
@@ -93,14 +106,15 @@ function CameraModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl overflow-hidden shadow-2xl max-w-md w-full relative border border-stone-200">
-        <div className="p-4 flex justify-between items-center bg-stone-50">
+    <div className="flex flex-col w-full">
+      <div className="bg-white overflow-hidden relative">
+        <div className="p-4 flex justify-between items-center bg-stone-50 border-b border-stone-200">
           <h3 className="font-bold text-stone-800">Take a Photo</h3>
-          <button onClick={onClose} className="p-2 bg-stone-200 rounded-full hover:bg-stone-300">
+          <button onClick={onClose} className="p-2 bg-stone-200 rounded-full hover:bg-stone-300 transition-colors">
             <X size={20} />
           </button>
         </div>
+        
         <div className="relative aspect-square bg-black flex items-center justify-center">
           {error ? (
             <div className="p-6 text-center">
@@ -108,7 +122,10 @@ function CameraModal({
               <button onClick={onClose} className="px-4 py-2 bg-white rounded-lg text-black text-sm">Close</button>
             </div>
           ) : !stream ? (
-            <p className="text-white">Starting camera...</p>
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-12 h-12 border-4 border-stone-600 border-t-white rounded-full animate-spin" />
+              <p className="text-stone-400 font-medium">Starting camera...</p>
+            </div>
           ) : (
             <video
               ref={videoRef}
@@ -119,14 +136,19 @@ function CameraModal({
             />
           )}
         </div>
+        
         {!error && (
-          <div className="p-6 flex justify-center bg-stone-50">
+          <div className="p-8 flex justify-center bg-white">
             <button
-              onClick={capture}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                capture();
+              }}
               disabled={!stream}
-              className="w-16 h-16 rounded-full border-4 border-stone-300 bg-white shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-transform disabled:opacity-50"
+              className="w-20 h-20 rounded-full border-8 border-stone-100 bg-white shadow-xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all disabled:opacity-30 disabled:hover:scale-100 group"
             >
-              <div className="w-12 h-12 rounded-full bg-stone-800" />
+              <div className="w-14 h-14 rounded-full bg-stone-800 group-hover:bg-[#2CAAE1] transition-colors shadow-inner" />
             </button>
           </div>
         )}
@@ -135,142 +157,48 @@ function CameraModal({
   );
 }
 
-export default function PhotoUploadSection({ onPhotosChange }: Props) {
-  const [photos, setPhotos] = useState<(string | null)[]>([null, null, null]);
-  const [statuses, setStatuses] = useState<SlotStatus[]>(["idle", "idle", "idle"]);
-  const [activeCameraSlot, setActiveCameraSlot] = useState<number | null>(null);
+export default function PhotoUploadSection({ onPhotosChange, onClose, onActivity }: Props) {
   const { extractFace } = useFaceSegmentation();
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const updatePhoto = (index: number, url: string | null) => {
-    const next = [...photos];
-    next[index] = url;
-    setPhotos(next);
-    onPhotosChange(next);
-  };
-
-  const updateStatus = (index: number, status: SlotStatus) => {
-    setStatuses((prev) => {
-      const next = [...prev];
-      next[index] = status;
-      return next;
-    });
-  };
+  // Prevent idle timeout during long processing
+  useEffect(() => {
+    if (isProcessing && onActivity) {
+      const interval = setInterval(() => {
+        console.log("[PhotoUploadSection] Heartbeat to prevent idle timeout...");
+        onActivity();
+      }, 5000); // 5 seconds heartbeat
+      return () => clearInterval(interval);
+    }
+  }, [isProcessing, onActivity]);
 
   const handleCapture = async (dataUrl: string) => {
-    if (activeCameraSlot === null) return;
-    const index = activeCameraSlot;
-    setActiveCameraSlot(null);
-
-    updateStatus(index, "processing");
-
+    setIsProcessing(true);
     try {
       const faceUrl = await extractFace(dataUrl);
-      updatePhoto(index, faceUrl);
-      updateStatus(index, "done");
+      // StepPattern expects an array of 3, we just send one for it to handle
+      onPhotosChange([faceUrl, null, null]);
     } catch {
-      updatePhoto(index, dataUrl);
-      updateStatus(index, "error");
+      onPhotosChange([dataUrl, null, null]);
+    } finally {
+      setIsProcessing(false);
     }
-
-    setTimeout(() => updateStatus(index, "done"), 2000);
   };
-
-  const clearPhoto = (index: number) => {
-    updatePhoto(index, null);
-    updateStatus(index, "idle");
-  };
-
-  // Hitung berapa foto yang aktif
-  const activeCount = photos.filter(Boolean).length;
 
   return (
-    <div className="flex flex-col gap-3">
-      {activeCameraSlot !== null && (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-8">
+      <div className="relative w-full max-w-[800px] bg-white rounded-[40px] overflow-hidden shadow-2xl">
         <CameraModal
           onCapture={handleCapture}
-          onClose={() => setActiveCameraSlot(null)}
+          onClose={onClose}
         />
-      )}
-
-      {/* Info layout */}
-      {activeCount >= 2 && (
-        <p className="font-mono text-[10px] text-stone-300 tracking-wider">
-          {activeCount === 2
-            ? "2-photo alternating pattern"
-            : "3-photo row pattern"}
-        </p>
-      )}
-
-      {/* Slot upload */}
-      <div className="flex gap-3">
-        {SLOTS.map(({ id, label }, index) => {
-          const photo = photos[index];
-          const status = statuses[index];
-          const isActive = !!photo;
-
-          return (
-            <div key={id} className="flex-1 flex flex-col gap-1.5">
-              <span className="font-mono text-[9px] uppercase tracking-widest text-stone-300 text-center">
-                {label}
-              </span>
-
-              <div className="relative">
-                {/* Preview jika sudah ada foto */}
-                {isActive ? (
-                  <div className="relative w-[90px] h-[90px] rounded-xl overflow-hidden border-2 border-stone-700 bg-stone-100">
-                    <Image
-                      src={photo!}
-                      alt={label}
-                      fill
-                      className="object-contain"
-                    />
-                    {/* Clear button */}
-                    <button
-                      onClick={() => clearPhoto(index)}
-                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-stone-800/80 flex items-center justify-center hover:bg-red-500 transition-colors"
-                    >
-                      <X size={10} className="text-white" />
-                    </button>
-                  </div>
-                ) : (
-                  /* Upload slot */
-                  <button
-                    onClick={() =>
-                      status === "idle" && setActiveCameraSlot(index)
-                    }
-                    disabled={status === "processing"}
-                    className={`
-                     w-[90px] h-[90px] rounded-xl border-2 border-dashed
-                      flex flex-col items-center justify-center gap-1
-                      transition-all duration-200
-                      disabled:cursor-not-allowed
-                      ${status === "processing"
-                        ? "border-blue-300 bg-blue-50 animate-pulse"
-                        : "border-stone-200 hover:border-stone-400 hover:bg-stone-50"
-                      }
-                    `}
-                  >
-                    {status === "processing" ? (
-                      <Loader
-                        size={16}
-                        className="text-blue-400 animate-spin"
-                      />
-                    ) : (
-                      <Camera size={16} className="text-stone-300" />
-                    )}
-                  </button>
-                )}
-
-                {/* Done checkmark flash */}
-                {status === "done" && isActive && (
-                  <div className="absolute bottom-1 left-1 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
-                    <Check size={10} className="text-white" />
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
+        {isProcessing && (
+          <div className="absolute inset-0 bg-white/90 flex flex-col items-center justify-center gap-6 z-50">
+            <div className="w-24 h-24 border-[6px] border-stone-100 border-t-[#2CAAE1] rounded-full animate-spin" />
+            <p className="text-[28px] font-bold text-stone-800 animate-pulse">Processing Face...</p>
+            <p className="text-stone-400 text-[18px]">Extracting high quality portrait</p>
+          </div>
+        )}
       </div>
     </div>
   );

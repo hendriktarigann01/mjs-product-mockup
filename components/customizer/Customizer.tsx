@@ -17,6 +17,7 @@ import {
   ArrowRight,
   Info,
   X,
+  Camera,
 } from "lucide-react";
 
 import { useCustomizer, type ProductId } from "@/hooks/useCustomizer";
@@ -178,45 +179,65 @@ function StepColor({
   value: string;
   onChange: (hex: string) => void;
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
   const [page, setPage] = useState(0);
   const totalPages = Math.ceil(SHIRT_COLORS.length / 12);
-  const pageColors = SHIRT_COLORS.slice(page * 12, page * 12 + 12);
   const colorName =
     SHIRT_COLORS.find((c) => c.hex === value)?.name ?? "Snow White";
+
+  const handleScroll = () => {
+    if (!scrollRef.current) return;
+    const { scrollLeft, clientWidth } = scrollRef.current;
+    const newPage = Math.round(scrollLeft / clientWidth);
+    if (newPage !== page) setPage(newPage);
+  };
+
+  const goToPage = (i: number) => {
+    setPage(i);
+    scrollRef.current?.scrollTo({ left: i * scrollRef.current.clientWidth, behavior: "smooth" });
+  };
 
   return (
     <div className="flex flex-col items-center gap-8 w-full max-w-[680px]">
       <p className="text-[28px] font-medium text-[#2CAAE1]">{colorName}</p>
 
-      {/* Container Scroll */}
-      <div className="w-full overflow-x-auto pb-6 no-scrollbar">
-        <div className="inline-grid grid-rows-2 grid-flow-col gap-6 p-4">
-          {pageColors.map((c) => (
+      {/* Scrollable Container */}
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="w-full overflow-x-auto pb-4 no-scrollbar"
+        style={{ scrollSnapType: "x mandatory" }}
+      >
+        <div
+          className="inline-grid grid-rows-2 grid-flow-col gap-6 p-4"
+          style={{ scrollSnapAlign: "start" }}
+        >
+          {SHIRT_COLORS.map((c) => (
             <button
               key={c.hex}
               onClick={() => onChange(c.hex)}
               title={c.name}
               className={`
-          w-[90px] h-[90px] rounded-full transition-all duration-200
-          ${value === c.hex
+                w-[90px] h-[90px] rounded-full transition-all duration-200
+                ${value === c.hex
                   ? "ring-[4px] ring-white ring-offset-[4px] ring-offset-[#2CAAE1] scale-110"
                   : "hover:scale-105"
                 }
-          ${c.hex === "#ffffff" ? "border-2 border-[#D9D9D9]" : ""}
-        `}
+                ${c.hex === "#ffffff" ? "border-2 border-[#D9D9D9]" : ""}
+              `}
               style={{ backgroundColor: c.hex }}
             />
           ))}
         </div>
       </div>
 
-      {/* Pagination dots (opsional jika sudah scroll) */}
+      {/* Pagination dots */}
       <div className="flex gap-3">
         {Array.from({ length: totalPages }).map((_, i) => (
           <button
             key={i}
-            onClick={() => setPage(i)}
-            className={`w-3 h-3 rounded-full transition-all ${i === page ? "bg-[#2CAAE1]" : "bg-[#D9D9D9]"
+            onClick={() => goToPage(i)}
+            className={`w-3 h-3 rounded-full transition-all ${i === page ? "bg-[#2CAAE1] w-8" : "bg-[#D9D9D9]"
               }`}
           />
         ))}
@@ -228,86 +249,169 @@ function StepColor({
 // ─── Step: Select Pattern ─────────────────────────────────────────────────────
 
 function StepPattern({
-  value,
-  onChange,
   photos,
   onPhotosChange,
+  onActivity,
 }: {
-  value: string | null;
-  onChange: (id: string) => void;
   photos: (string | null)[];
   onPhotosChange: (photos: (string | null)[]) => void;
+  onActivity?: () => void;
 }) {
-  const [page, setPage] = useState(0);
-  const totalPages = Math.ceil(PREDEFINED_DESIGNS.length / PATTERNS_PER_PAGE);
+  const [activeSlot, setActiveSlot] = useState(0);
+  const [patternPage, setPatternPage] = useState(0);
+  const [showCamera, setShowCamera] = useState(false);
+
+  const totalPages = Math.ceil(PREDEFINED_DESIGNS.length / 10);
   const pageDesigns = PREDEFINED_DESIGNS.slice(
-    page * PATTERNS_PER_PAGE,
-    page * PATTERNS_PER_PAGE + PATTERNS_PER_PAGE,
+    patternPage * 10,
+    patternPage * 10 + 10,
   );
-  const activeName =
-    PREDEFINED_DESIGNS.find((d) => d.id === value)?.name ?? "Choose a design";
+
+  const updateSlot = (index: number, value: string | null) => {
+    const next = [...photos];
+    next[index] = value;
+    onPhotosChange(next);
+  };
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const handleScroll = () => {
+    if (!scrollRef.current) return;
+    const { scrollLeft, clientWidth } = scrollRef.current;
+    const newPage = Math.round(scrollLeft / clientWidth);
+    if (newPage !== patternPage) setPatternPage(newPage);
+  };
+
+  const goToPage = (i: number) => {
+    setPatternPage(i);
+    scrollRef.current?.scrollTo({ left: i * scrollRef.current.clientWidth, behavior: "smooth" });
+  };
 
   return (
-    <div className="flex flex-col items-center gap-10 w-full max-w-[680px]">
-      {/* Bagian 1: Preset Pattern */}
-      <div className="flex flex-col items-center gap-6 w-full">
-        <div className="grid grid-cols-6 gap-5 w-full">
-          {/* Clear Button */}
+    <div className="flex flex-col items-center gap-12 w-full max-w-[760px]">
+      {/* ── 3 SLOTS DISPLAY ── */}
+      <div className="flex gap-6 justify-center w-full">
+        {photos.map((p, i) => (
           <button
-            onClick={() => onChange("")}
+            key={i}
+            onClick={() => setActiveSlot(i)}
             className={`
-              w-[90px] h-[90px] rounded-full flex items-center justify-center border-[3px] transition-all duration-200
-              ${!value
-                ? "border-[#2CAAE1] ring-[4px] ring-white ring-offset-[3px] ring-offset-[#2CAAE1] scale-110"
-                : "border-stone-200 hover:border-[#2CAAE1] hover:scale-105"
+              relative w-[180px] h-[180px] rounded-[24px] border-[4px] transition-all overflow-hidden flex flex-col items-center justify-center
+              ${activeSlot === i
+                ? "border-[#2CAAE1] bg-[#EBF7FD] shadow-lg scale-105 z-10"
+                : "border-[#D9D9D9] bg-white opacity-70"
               }
             `}
           >
-            <X size={32} className="text-stone-300" />
+            {p ? (
+              <>
+                <img src={p} className="w-full h-full object-cover" />
+                <div
+                  onClick={(e) => { e.stopPropagation(); updateSlot(i, null); }}
+                  className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/50 flex items-center justify-center text-white"
+                >
+                  ✕
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-10 h-10 rounded-full border-2 border-dashed border-stone-300" />
+                <span className="text-[14px] font-bold text-stone-400 uppercase tracking-widest">Slot {i + 1}</span>
+              </div>
+            )}
+            {activeSlot === i && (
+              <div className="absolute bottom-0 inset-x-0 bg-[#2CAAE1] py-1 text-center text-white text-[11px] font-bold uppercase tracking-tighter">
+                Editing
+              </div>
+            )}
           </button>
+        ))}
+      </div>
 
-          {pageDesigns.map((d) => (
-            <button
-              key={d.id}
-              onClick={() => onChange(d.id)}
-              title={d.name}
-              className={`
-              w-[90px] h-[90px] rounded-full overflow-hidden border-[3px] transition-all duration-200
-              ${value === d.id
-                  ? "border-[#2CAAE1] ring-[4px] ring-white ring-offset-[3px] ring-offset-[#2CAAE1] scale-110"
-                  : "border-transparent hover:border-[#2CAAE1] hover:scale-105"
-                }
-            `}
-            >
-              <img
-                src={d.src}
-                alt={d.name}
-                className="w-full h-full object-cover"
-              />
-            </button>
-          ))}
+      <div className="w-full border-t border-stone-100" />
+
+      {/* ── SELECTION AREA ── */}
+      <div className="flex flex-col gap-10 w-full bg-stone-50/50 p-8 rounded-[32px] border border-stone-100">
+        <div className="flex items-center justify-between">
+          <h3 className="text-[26px] font-bold text-[#374151]">Choose Content</h3>
+          <button
+            onClick={() => setShowCamera(true)}
+            className="flex items-center gap-3 px-8 h-16 rounded-full bg-stone-800 text-white font-bold text-[18px] hover:bg-black transition-all shadow-xl active:scale-95"
+          >
+            <Camera size={24} />
+            Take Photo
+          </button>
         </div>
 
-        {/* Pagination dots */}
-        <div className="flex gap-3">
+        {/* Pattern Grid */}
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="w-full overflow-x-auto no-scrollbar"
+          style={{ scrollSnapType: "x mandatory" }}
+        >
+          <div
+            className="flex"
+            style={{ width: `${totalPages * 100}%` }}
+          >
+            {Array.from({ length: totalPages }).map((_, pageIdx) => (
+              <div
+                key={pageIdx}
+                className="grid grid-cols-5 gap-6 flex-shrink-0"
+                style={{ width: `${100 / totalPages}%`, scrollSnapAlign: "start" }}
+              >
+                {PREDEFINED_DESIGNS.slice(pageIdx * 10, pageIdx * 10 + 10).map((d) => (
+                  <button
+                    key={d.id}
+                    onClick={() => {
+                      updateSlot(activeSlot, d.src);
+                      const nextEmpty = photos.findIndex((p, idx) => idx > activeSlot && !p);
+                      if (nextEmpty !== -1) setActiveSlot(nextEmpty);
+                    }}
+                    className="aspect-square rounded-[20px] overflow-hidden border-[3px] border-white shadow-sm hover:border-[#2CAAE1] hover:scale-105 transition-all bg-white"
+                  >
+                    <img src={d.src} alt={d.name} className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Pagination */}
+        <div className="flex gap-3 justify-center">
           {Array.from({ length: totalPages }).map((_, i) => (
             <button
               key={i}
-              onClick={() => setPage(i)}
-              className={`w-3 h-3 rounded-full transition-all ${i === page ? "bg-[#2CAAE1]" : "bg-[#D9D9D9]"
+              onClick={() => goToPage(i)}
+              className={`w-3 h-3 rounded-full transition-all ${i === patternPage ? "bg-[#2CAAE1] w-8" : "bg-[#D9D9D9]"
                 }`}
             />
           ))}
         </div>
       </div>
 
-      <div className="w-full border-t border-stone-200" />
-
-      {/* Bagian 2: Photo Camera */}
-      <div className="flex flex-col items-center gap-4 w-full">
-        <h2 className="text-[24px] font-medium text-[#2CAAE1]">Upload Photo (Face)</h2>
-        <PhotoUploadSection onPhotosChange={onPhotosChange} />
-      </div>
+      {/* Camera Modal Overlay */}
+      <AnimatePresence>
+        {showCamera && (
+          <PhotoUploadSection
+            onPhotosChange={(newPhotos) => {
+              const newPhoto = newPhotos[0]; // The single photo captured
+              if (newPhoto) {
+                updateSlot(activeSlot, newPhoto);
+                // Move to next slot automatically if available
+                const nextIndex = photos.findIndex((p, idx) => idx > activeSlot && !p);
+                if (nextIndex !== -1) {
+                  setActiveSlot(nextIndex);
+                }
+              }
+              setShowCamera(false);
+            }}
+            onClose={() => setShowCamera(false)}
+            onActivity={onActivity}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -576,7 +680,7 @@ function getStepLabel(product: ProductId, step: number): { title: string } {
 // Main Customizer
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function Customizer() {
+export function Customizer({ onActivity }: { onActivity?: () => void }) {
   const router = useRouter();
   const {
     activeProduct,
@@ -588,8 +692,6 @@ export function Customizer() {
     goPrev,
     shirtColor,
     setShirtColor,
-    activeDesign,
-    setActiveDesign,
     selectedSize,
     setSelectedSize,
     photos,
@@ -606,6 +708,7 @@ export function Customizer() {
     setGcTemplate,
     giftCardUrl,
     setGiftCardUrl,
+    reset,
   } = useCustomizer();
 
   const cartIconRef = useRef<HTMLAnchorElement>(null);
@@ -672,7 +775,6 @@ export function Customizer() {
     const productUrl = uploadedPhotos.filter(Boolean).join(",");
 
     addToCart(currentProduct, 1, {
-      design: activeDesign,
       color: shirtColor,
       size: selectedSize,
       giftCardUrl,
@@ -697,12 +799,6 @@ export function Customizer() {
   const { title: stepTitle } = getStepLabel(activeProduct, step);
 
   // ── Resolve design src for preview ───────────────────────────────────────
-  const activeDesignSrc: string | null = (() => {
-    if (!activeDesign) return null;
-    if (activeDesign.startsWith("/api/pixabay-image")) return activeDesign;
-    return PREDEFINED_DESIGNS.find((d) => d.id === activeDesign)?.src ?? null;
-  })();
-
   // ─────────────────────────────────────────────────────────────────────────
   // Render
   // ─────────────────────────────────────────────────────────────────────────
@@ -714,6 +810,7 @@ export function Customizer() {
         isOpen={showAddToCartModal}
         onClose={() => setShowAddToCartModal(false)}
         onViewCart={() => router.push("/cart")}
+        onShopMore={reset}
       />
       {/* ── HEADER ───────────────────────────────────────────────── */}
       <div className="relative flex flex-col items-center pt-14 pb-8 px-16">
@@ -797,7 +894,6 @@ export function Customizer() {
               <div className="relative w-full h-full flex items-center justify-center">
                 <Canvas
                   ref={canvasRef}
-                  designSrc={activeDesignSrc}
                   shirtColor={shirtColor}
                   productFile={currentProduct.file}
                   overlayFile={currentProduct.overlayFile}
@@ -839,10 +935,9 @@ export function Customizer() {
               )}
               {!isGiftCard && step === 2 && (
                 <StepPattern
-                  value={activeDesign}
-                  onChange={setActiveDesign}
                   photos={photos}
                   onPhotosChange={setPhotos}
+                  onActivity={onActivity}
                 />
               )}
               {!isGiftCard && step === 3 && activeProduct === "fajamas" && (

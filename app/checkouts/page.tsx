@@ -9,6 +9,7 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
+import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { Footer } from "@/components/common/Footer";
 import { ContactSection } from "@/components/checkouts/ContactSection";
@@ -271,7 +272,7 @@ function CheckoutContent() {
         );
         clearCart();
         clearBuyNowItem();
-        
+
         // SOLUSI SIMPEL: Pakai orderId langsung dari frontend agar tidak kosong
         const successUrl = `/order-success?order_id=${encodeURIComponent(orderId)}`;
         console.log("🚀 Redirecting to:", successUrl);
@@ -372,22 +373,14 @@ function CheckoutContent() {
   return (
     <main className="min-h-screen bg-brand-gray-primary px-4 sm:px-8 py-10 sm:py-20 flex flex-col items-center font-sans">
       <div className="w-full max-w-[850px] flex flex-col items-center">
-        {/* Title Header */}
-        <h1 className="text-3xl sm:text-5xl font-medium text-[#4A5568] mb-10 sm:mb-20 text-center">
-          Happify Indonesia
-        </h1>
 
-        {/* Session badge (QR flow indicator) */}
-        {sessionId && (
-          <div className="w-full mb-6 p-4 bg-blue-50 border border-blue-200 rounded-2xl text-blue-700 text-sm sm:text-base flex items-center gap-3">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" />
-              <path d="M9 18h6" />
-              <path d="M10 22h4" />
-            </svg>
-            <span>Checkout session loaded from QR code</span>
-          </div>
-        )}
+        <Image
+          src="/happify-text.webp"
+          alt="Happify Indonesia"
+          width={250}
+          height={75}
+          className="mx-auto mb-10 sm:mb-20"
+        />
 
         {error && (
           <div className="w-full mb-6 sm:mb-8 p-4 sm:p-6 bg-red-50 border border-red-200 rounded-2xl text-red-600 text-base sm:text-xl">
