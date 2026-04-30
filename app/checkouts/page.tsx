@@ -252,34 +252,13 @@ function CheckoutContent() {
         paymentMethod: method,
       };
 
-      // KHUSUS CASHIER: Langsung simpan ke Supabase & Redirect
-      if (method === "cashier") {
-        const { error: insertError } = await supabase.from("orders").insert([
-          {
-            order_id: orderId,
-            customer_name: [firstName, lastName].filter(Boolean).join(" "),
-            email: String(email).trim(),
-            phone: String(phone || "").trim(),
-            total_price: grossAmount,
-            subtotal: subtotal,
-            shipping_cost: shippingCost,
-            address: String(address || "").trim(),
-            postal_code: String(zip || "").trim(),
-            region_tag: wilayah.provinsiName || "",
-            shipping_courier: selectedShipping?.name || "",
-            payment_method: "Cashier",
-            cart_items: paymentData.itemDetails,
-            pdf_url: customization?.designImageUrl || null,
-            product_url: (customization?.photos || []).filter(Boolean)[0] || null,
-            status: "pending",
-          },
-        ]);
+      // Kirim ke Backend (Express)
+      console.log("📥 Mengirim data checkout ke backend...");
+      const response = await createTransactionToken(paymentData);
+      console.log("✅ Respons backend diterima:", response);
 
-        if (insertError) {
-          console.error("❌ Gagal menyimpan order kasir:", insertError);
-          throw new Error(`Database error: ${insertError.message}`);
-        }
-
+      if (response.isCashier) {
+        console.log("🏪 Alur pembayaran kasir terdeteksi, mengalihkan...");
         localStorage.setItem(
           "currentOrder",
           JSON.stringify({
@@ -292,13 +271,11 @@ function CheckoutContent() {
         );
         clearCart();
         clearBuyNowItem();
-        window.location.href = `/order-success?order_id=${encodeURIComponent(orderId)}`;
+        window.location.href = response.redirectUrl || `/order-success?order_id=${encodeURIComponent(orderId)}`;
         return;
       }
 
-      // FLOW MIDTRANS (Existing)
-      const response = await createTransactionToken(paymentData);
-
+      // FLOW MIDTRANS (Hanya untuk Online Payment)
       openMidtransPayment(response.token, {
         onSuccess: async (result: any) => {
           try {
