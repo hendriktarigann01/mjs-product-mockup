@@ -271,7 +271,11 @@ function CheckoutContent() {
         );
         clearCart();
         clearBuyNowItem();
-        window.location.href = response.redirectUrl || `/order-success?order_id=${encodeURIComponent(orderId)}`;
+        
+        // SOLUSI SIMPEL: Pakai orderId langsung dari frontend agar tidak kosong
+        const successUrl = `/order-success?order_id=${encodeURIComponent(orderId)}`;
+        console.log("🚀 Redirecting to:", successUrl);
+        window.location.href = successUrl;
         return;
       }
 
