@@ -166,7 +166,15 @@ router.post("/create-token", async (req, res) => {
         isCashier: true,
       });
     }
+    // ── MIDTRANS DIHOLD — Force semua ke cashier flow ──────────────────
+    console.log("✅ Order created (Midtrans HOLD — forced Cashier flow)");
+    return res.json({
+      token: null,
+      redirectUrl: `${process.env.APP_URL || "https://happify.id"}/order-success?order_id=${orderId}`,
+      isCashier: true,
+    });
 
+    /* ── MIDTRANS SNAP (DINONAKTIFKAN SEMENTARA) ─────────────────────────
     const midtransPayload = {
       transaction_details: { order_id: orderId, gross_amount: grossAmount },
       customer_details: {
@@ -197,8 +205,9 @@ router.post("/create-token", async (req, res) => {
       token: transaction.token,
       redirectUrl: transaction.redirect_url,
     });
+    ── END MIDTRANS SNAP ──────────────────────────────────────────────── */
   } catch (error) {
-    console.error("❌ Midtrans error:", error);
+    console.error("❌ Create-token error:", error);
     if (error.ApiResponse?.error_messages) {
       return res.status(400).json({
         error: "Midtrans API error",
@@ -236,11 +245,12 @@ router.post("/callback", async (req, res) => {
       const { orderSummary, pdfBase64 } = readTempOrderFiles(order_id);
 
       if (orderSummary) {
-        // ── Email customer konfirmasi (TETAP AKTIF) ────────────────────────
+        // ── Email customer konfirmasi (DINONAKTIFKAN SEMENTARA) ──────────
         // ── Email pabrik (HOLD — ganti dengan Cloudinary PNG, skip PDF) ───
-        sendOrderEmailCustomerOnly(orderSummary).catch((e) =>
-          console.error("⚠️ Email customer error (non-fatal):", e.message),
-        );
+        // sendOrderEmailCustomerOnly(orderSummary).catch((e) =>
+        //   console.error("⚠️ Email customer error (non-fatal):", e.message),
+        // );
+        console.log(`[⏸ EMAIL DISABLED] Skipping email for order: ${order_id}`);
         // Hapus file temp
         deleteTempOrderFiles(order_id);
       } else {
