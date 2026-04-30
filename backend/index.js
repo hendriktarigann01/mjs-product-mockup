@@ -64,15 +64,15 @@ app.use((err, req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
 const server = app.listen(PORT, () => {
-  console.log(`✅ API running on http://localhost:${PORT}`);
+  console.log(`API running on http://localhost:${PORT}`);
 });
 
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
-    console.error(`❌ PORT ${PORT} is already in use by another process.`);
+    console.error(`PORT ${PORT} is already in use by another process.`);
     process.exit(1);
   } else {
-    console.error('❌ Server error:', err);
+    console.error('Server error:', err);
   }
 });
 
