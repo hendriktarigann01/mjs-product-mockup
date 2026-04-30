@@ -7,8 +7,32 @@
     },
     "rewrites": [
         {
-            "source": "/api/",
+            "source": "/api/test",
+            "destination": "/api/index.js/test"
+        },
+        {
+            "source": "/api/health",
+            "destination": "/api/index.js/health"
+        },
+        {
+            "source": "/api/midtrans/(.*)",
+            "destination": "/api/index.js/midtrans"
+        },
+        {
+            "source": "/api/notify-resi",
             "destination": "/api/index.js"
+        },
+        {
+            "source": "/api/orders/(.*)",
+            "destination": "/api/index.js"
+        },
+        {
+            "source": "/backend/(.*)",
+            "destination": "/api/index.js"
+        },
+        {
+            "source": "/(.*)",
+            "destination": "/"
         }
     ]
-} 
+}
