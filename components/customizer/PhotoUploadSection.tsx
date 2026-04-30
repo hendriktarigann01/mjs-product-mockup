@@ -40,19 +40,32 @@ function CameraModal({
     }
 
     let activeStream: MediaStream | null = null;
-    navigator.mediaDevices
-      .getUserMedia({ video: { facingMode: "user" } })
-      .then((s) => {
+    
+    async function startCamera() {
+      try {
+        // Try with user facing mode first
+        const s = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: "user" } 
+        });
         activeStream = s;
         setStream(s);
-        if (videoRef.current) {
-          videoRef.current.srcObject = s;
+        if (videoRef.current) videoRef.current.srcObject = s;
+      } catch (err: any) {
+        console.warn("Failed with facingMode:user, trying basic constraints", err);
+        try {
+          // Fallback to any video source
+          const s = await navigator.mediaDevices.getUserMedia({ video: true });
+          activeStream = s;
+          setStream(s);
+          if (videoRef.current) videoRef.current.srcObject = s;
+        } catch (innerErr: any) {
+          console.error("Camera access denied:", innerErr);
+          setErrorMessage(`Camera access denied (${innerErr.name}). Please allow permissions.`);
         }
-      })
-      .catch((err) => {
-        console.error("Camera access denied:", err);
-        setErrorMessage("Camera access denied. Please allow camera permissions in your browser.");
-      });
+      }
+    }
+
+    startCamera();
 
     return () => {
       if (activeStream) {
@@ -76,15 +89,15 @@ function CameraModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl overflow-hidden shadow-2xl max-w-md w-full relative border border-stone-200">
-        <div className="p-4 border-b flex justify-between items-center bg-stone-50">
+        <div className="p-4 flex justify-between items-center bg-stone-50">
           <h3 className="font-bold text-stone-800">Take a Photo</h3>
           <button onClick={onClose} className="p-2 bg-stone-200 rounded-full hover:bg-stone-300">
             <X size={20} />
           </button>
         </div>
-        <div className="relative aspect-square bg-black flex items-center justify-center">
+        <div className="relative aspect-square flex items-center justify-center">
           {error ? (
             <div className="p-6 text-center">
               <p className="text-white text-sm mb-4">{error}</p>

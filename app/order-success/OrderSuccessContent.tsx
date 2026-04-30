@@ -277,7 +277,7 @@ export default function OrderSuccessContent() {
         </div>
 
         {/* Support & Actions */}
-        <div className="flex flex-col items-center gap-8">
+        {/* <div className="flex flex-col items-center gap-8">
           <div className="text-center">
             <p className="font-mono text-[0.6rem] text-stone-400 uppercase tracking-[0.3em] mb-3 font-bold">Need assistance?</p>
             <p className="font-mono text-sm text-stone-800 bg-white px-6 py-2 rounded-full border border-stone-200 shadow-sm">
@@ -299,7 +299,7 @@ export default function OrderSuccessContent() {
               <Download size={16} /> Save Receipt
             </button>
           </div>
-        </div>
+        </div> */}
 
         <Footer />
       </div>
