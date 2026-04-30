@@ -1,7 +1,9 @@
 {
     "version": 2,
     "functions": {
-        "backend/index.js": {}
+        "backend/index.js": {
+            "maxDuration": 120
+        }
     },
     "rewrites": [
         {
