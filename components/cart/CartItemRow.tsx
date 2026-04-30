@@ -30,7 +30,7 @@ export function CartItemRow({ item, onUpdateQty, onRemove }: CartItemProps) {
 
         {/* Details */}
         <div className="flex flex-col gap-1">
-          <p className="font-serif text-2xl text-stone-800">{name}</p>
+          <p className=" text-2xl text-stone-800">{name}</p>
           <div className="mt-1 space-y-0.5 text-lg">
             <p className="font-mono text-stone-400">Colors: {color}</p>
             <p className="font-mono text-stone-400">Pattern: {pattern}</p>

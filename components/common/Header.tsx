@@ -30,7 +30,7 @@ export function Header({
         </p>
       )}
       <div className="flex items-end justify-between">
-        <h1 className="font-serif text-4xl md:text-5xl text-stone-800 leading-tight">
+        <h1 className=" text-4xl md:text-5xl text-stone-800 leading-tight">
           {title}
         </h1>
         {rightElement && <div>{rightElement}</div>}

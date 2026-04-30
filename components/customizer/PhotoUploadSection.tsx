@@ -31,8 +31,14 @@ function CameraModal({
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [error, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setErrorMessage("Camera not supported. Please ensure you are using HTTPS and a compatible browser.");
+      return;
+    }
+
     let activeStream: MediaStream | null = null;
     navigator.mediaDevices
       .getUserMedia({ video: { facingMode: "user" } })
@@ -45,8 +51,7 @@ function CameraModal({
       })
       .catch((err) => {
         console.error("Camera access denied:", err);
-        alert("Camera access is required to take a photo.");
-        onClose();
+        setErrorMessage("Camera access denied. Please allow camera permissions in your browser.");
       });
 
     return () => {
@@ -54,7 +59,7 @@ function CameraModal({
         activeStream.getTracks().forEach((track) => track.stop());
       }
     };
-  }, [onClose]);
+  }, []);
 
   const capture = () => {
     if (videoRef.current) {
@@ -80,26 +85,34 @@ function CameraModal({
           </button>
         </div>
         <div className="relative aspect-square bg-black flex items-center justify-center">
-          {!stream ? (
+          {error ? (
+            <div className="p-6 text-center">
+              <p className="text-white text-sm mb-4">{error}</p>
+              <button onClick={onClose} className="px-4 py-2 bg-white rounded-lg text-black text-sm">Close</button>
+            </div>
+          ) : !stream ? (
             <p className="text-white">Starting camera...</p>
           ) : (
             <video
               ref={videoRef}
               autoPlay
               playsInline
+              muted
               className="w-full h-full object-cover scale-x-[-1]"
             />
           )}
         </div>
-        <div className="p-6 flex justify-center bg-stone-50">
-          <button
-            onClick={capture}
-            disabled={!stream}
-            className="w-16 h-16 rounded-full border-4 border-stone-300 bg-white shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-transform disabled:opacity-50"
-          >
-            <div className="w-12 h-12 rounded-full bg-stone-800" />
-          </button>
-        </div>
+        {!error && (
+          <div className="p-6 flex justify-center bg-stone-50">
+            <button
+              onClick={capture}
+              disabled={!stream}
+              className="w-16 h-16 rounded-full border-4 border-stone-300 bg-white shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-transform disabled:opacity-50"
+            >
+              <div className="w-12 h-12 rounded-full bg-stone-800" />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

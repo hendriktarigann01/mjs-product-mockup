@@ -11,7 +11,7 @@ export function TrustBadges({ show = true }: TrustBadgesProps) {
     <div className="mt-16 pt-8 border-t border-stone-200 grid grid-cols-2 md:grid-cols-3 gap-6">
       {TRUST_BADGES.map((badge) => (
         <div key={badge.title}>
-          <p className="font-serif text-2xl text-center text-stone-800 leading-tight">
+          <p className=" text-2xl text-center text-stone-800 leading-tight">
             {badge.title}
           </p>
           <p className="font-mono text-xl text-center text-stone-400">{badge.sub}</p>

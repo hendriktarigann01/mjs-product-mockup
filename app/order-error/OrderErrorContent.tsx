@@ -89,7 +89,7 @@ export default function OrderErrorContent() {
             <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
 
             {/* Title */}
-            <h1 className="font-serif text-3xl text-stone-800 mb-2">
+            <h1 className=" text-3xl text-stone-800 mb-2">
               {errorInfo.title}
             </h1>
 
@@ -120,7 +120,7 @@ export default function OrderErrorContent() {
 
         {/* Troubleshooting */}
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-8">
-          <h3 className="font-serif text-lg text-stone-800 mb-4">
+          <h3 className=" text-lg text-stone-800 mb-4">
             What You Can Try:
           </h3>
           <ul className="space-y-2 font-mono text-sm text-stone-700">
@@ -135,7 +135,7 @@ export default function OrderErrorContent() {
 
         {/* Test Cases Info */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
-          <h3 className="font-serif text-lg text-stone-800 mb-4">
+          <h3 className=" text-lg text-stone-800 mb-4">
             Testing Payment Errors:
           </h3>
           <div className="grid grid-cols-2 gap-3 font-mono text-xs">
@@ -179,7 +179,7 @@ export default function OrderErrorContent() {
           <p className="font-mono text-xs text-stone-600 mb-2">
             Still having issues? Contact our support team
           </p>
-          <p className="font-serif text-sm text-stone-800">
+          <p className=" text-sm text-stone-800">
             📞 +62-851-5800-4568
           </p>
         </div>

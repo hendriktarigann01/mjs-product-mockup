@@ -7,6 +7,7 @@
 // Side Effects: localStorage (addToCart), Cloudinary upload (design PNG saat add to cart)
 
 import React, { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import {
@@ -21,7 +22,7 @@ import {
 import { useCustomizer, type ProductId } from "@/hooks/useCustomizer";
 import { useCartBadge } from "@/hooks/useCartBadge";
 import { GiftCardEditor } from "@/components/giftcard/GiftCardEditor";
-import { FlyParticles } from "@/components/customizer/FlyParticles";
+import AddToCartModal from "@/components/customizer/AddToCart";
 import Canvas, { type CanvasHandle } from "@/components/customizer/Canvas";
 import PhotoUploadSection from "@/components/customizer/PhotoUploadSection";
 
@@ -250,9 +251,21 @@ function StepPattern({
     <div className="flex flex-col items-center gap-10 w-full max-w-[680px]">
       {/* Bagian 1: Preset Pattern */}
       <div className="flex flex-col items-center gap-6 w-full">
-        <h2 className="text-[28px] font-medium text-[#2CAAE1]">{activeName}</h2>
-
         <div className="grid grid-cols-6 gap-5 w-full">
+          {/* Clear Button */}
+          <button
+            onClick={() => onChange("")}
+            className={`
+              w-[90px] h-[90px] rounded-full flex items-center justify-center border-[3px] transition-all duration-200
+              ${!value
+                ? "border-[#2CAAE1] ring-[4px] ring-white ring-offset-[3px] ring-offset-[#2CAAE1] scale-110"
+                : "border-stone-200 hover:border-[#2CAAE1] hover:scale-105"
+              }
+            `}
+          >
+            <X size={32} className="text-stone-300" />
+          </button>
+
           {pageDesigns.map((d) => (
             <button
               key={d.id}
@@ -564,6 +577,7 @@ function getStepLabel(product: ProductId, step: number): { title: string } {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function Customizer() {
+  const router = useRouter();
   const {
     activeProduct,
     step,
@@ -598,8 +612,9 @@ export function Customizer() {
   const addBtnRef = useRef<HTMLButtonElement>(null);
   const canvasRef = useRef<CanvasHandle>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [showAddToCartModal, setShowAddToCartModal] = useState(false);
 
-  const { cartCount, flyParticles, triggerFlyToCart, incrementCount } =
+  const { cartCount, incrementCount } =
     useCartBadge({
       cartIconRef: cartIconRef as React.RefObject<HTMLElement | null>,
       addBtnRef: addBtnRef as React.RefObject<HTMLElement | null>,
@@ -653,20 +668,22 @@ export function Customizer() {
       }
     }
 
-    triggerFlyToCart();
+    // productUrl berisi gabungan URL foto (koma separated) jika ada foto kustom
+    const productUrl = uploadedPhotos.filter(Boolean).join(",");
 
-    setTimeout(() => {
-      addToCart(currentProduct, 1, {
-        design: activeDesign,
-        color: shirtColor,
-        size: selectedSize,
-        giftCardUrl,
-        designImageUrl,
-        photos: uploadedPhotos,
-      });
-      incrementCount();
-      setIsUploading(false);
-    }, 480);
+    addToCart(currentProduct, 1, {
+      design: activeDesign,
+      color: shirtColor,
+      size: selectedSize,
+      giftCardUrl,
+      designImageUrl,
+      photos: uploadedPhotos,
+      productUrl: productUrl || null,
+    });
+
+    incrementCount();
+    setIsUploading(false);
+    setShowAddToCartModal(true);
   };
 
   const handleNext = () => {
@@ -692,8 +709,12 @@ export function Customizer() {
   return (
     // Root: 1080 × 1920 kiosk container
     <div className="w-[1080px] min-h-[1920px] mx-auto bg-white">
-      {/* Fly particles overlay */}
-      <FlyParticles particles={flyParticles} />
+      {/* Add to Cart Modal */}
+      <AddToCartModal
+        isOpen={showAddToCartModal}
+        onClose={() => setShowAddToCartModal(false)}
+        onViewCart={() => router.push("/cart")}
+      />
       {/* ── HEADER ───────────────────────────────────────────────── */}
       <div className="relative flex flex-col items-center pt-14 pb-8 px-16">
         {/* Cart button top-left */}
@@ -715,7 +736,7 @@ export function Customizer() {
           </a>
         </div>
 
-        <h1 className="font-serif text-[52px] font-normal text-[#374151] tracking-tight">
+        <h1 className=" text-[52px] font-normal text-[#374151] tracking-tight">
           Design Your Product
         </h1>
         <p className="text-[28px] font-light text-[#6B7280] tracking-wide mt-2">
@@ -796,7 +817,7 @@ export function Customizer() {
               transition={{ duration: 0.22 }}
               className="flex flex-col items-center gap-1 mb-8"
             >
-              <h2 className="font-serif text-[38px] font-normal text-[#374151]">
+              <h2 className=" text-[38px] font-normal text-[#374151]">
                 {stepTitle}
               </h2>
             </motion.div>

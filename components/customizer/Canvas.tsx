@@ -161,44 +161,23 @@ const Canvas = forwardRef<CanvasHandle, Props>(function Canvas(
 
       let patCanvas: HTMLCanvasElement;
 
-      if (usePhotos) {
+      // ─── KOMBINASI DESAIN & FOTO ───────────────────────────────────────────
+      if (usePhotos || designSrc) {
         const photoImgs = await Promise.all(activePhotos.map(loadImage));
+        
+        // Jika ada designSrc, masukkan ke dalam deretan gambar pattern
+        if (designSrc) {
+          const designImg = await loadImage(designSrc);
+          // Masukkan di awal atau di akhir? Kita masukkan di awal agar jadi elemen utama pattern
+          photoImgs.unshift(designImg);
+        }
+
         patCanvas = await buildPhotoPattern(photoImgs, SIZE);
       } else {
-        // ─── FIX: Pixabay URL tetap di-load, hanya bedain apakah ada PAIR-nya ─
-        const pairSrc = DESIGN_PAIRS[designSrc!] ?? null;
-        const [designImg, pairImg] = await Promise.all([
-          loadImage(designSrc!),
-          pairSrc ? loadImage(pairSrc) : Promise.resolve(null),
-        ]);
-
-        const TILE = 30;
-        const GAP = 50;
-        const cellW = TILE + GAP;
-        const cellH = TILE + GAP;
-
+        // Fallback jika tidak ada apa-apa (harusnya tidak masuk sini karena sudah ada guard di atas)
         patCanvas = document.createElement("canvas");
         patCanvas.width = SIZE;
         patCanvas.height = SIZE;
-        const pCtx = patCanvas.getContext("2d")!;
-
-        const cols = Math.ceil(SIZE / cellW) + 2;
-        const rows = Math.ceil(SIZE / cellH) + 2;
-
-        for (let row = -1; row < rows; row++) {
-          for (let col = -1; col < cols; col++) {
-            const ax = col * cellW;
-            const ay = row * cellH;
-            pCtx.drawImage(designImg, ax, ay, TILE, TILE);
-            pCtx.drawImage(
-              pairImg ?? designImg,
-              ax + cellW / 2,
-              ay + cellH / 2,
-              TILE,
-              TILE,
-            );
-          }
-        }
       }
 
       ctx.clearRect(0, 0, SIZE, SIZE);

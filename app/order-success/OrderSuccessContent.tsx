@@ -58,6 +58,30 @@ export default function OrderSuccessContent() {
     // Clear cart and local storage regardless
     clearCart();
     localStorage.removeItem("currentOrder");
+
+    // Real-time subscription for order updates
+    if (orderId) {
+      const channel = supabase
+        .channel(`order-updates-${orderId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "orders",
+            filter: `order_id=eq.${orderId}`,
+          },
+          (payload) => {
+            console.log("Order updated in real-time:", payload.new);
+            setOrderData(payload.new);
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
   }, [searchParams]);
 
   if (loading) {
@@ -74,7 +98,7 @@ export default function OrderSuccessContent() {
   if (error || !orderData) {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 text-center">
-        <h2 className="font-serif text-3xl text-stone-800 mb-4">Oops!</h2>
+        <h2 className=" text-3xl text-stone-800 mb-4">Oops!</h2>
         <p className="font-mono text-sm text-stone-500 mb-8">{error || "No order details found."}</p>
         <Link href="/" className="px-8 py-3 bg-stone-900 text-white rounded-full font-mono text-xs uppercase tracking-widest hover:bg-stone-800 transition-colors">
           Back to Home
@@ -84,32 +108,34 @@ export default function OrderSuccessContent() {
   }
 
   const isCashier = orderData.payment_method?.toLowerCase() === "cashier";
+  const isPaid = orderData.status?.toLowerCase() === "paid";
+  const showPaidUI = isPaid || (!isCashier);
 
   return (
     <main className="min-h-screen bg-white px-6 py-12">
       <div className="w-full max-w-2xl mx-auto">
         <Header
           breadcrumb="Home / Cart / Checkout / Success"
-          title={isCashier ? "Order Placed!" : "Payment Success!"}
+          title={showPaidUI ? "Thanks for Shipping!" : "Order Placed!"}
         />
 
         {/* Status Card */}
-        <div className={`rounded-2xl border p-8 mb-8 ${isCashier ? "bg-amber-50 border-amber-200" : "bg-emerald-50 border-emerald-200"}`}>
+        <div className={`rounded-2xl border p-8 mb-8 ${showPaidUI ? "bg-emerald-50 border-emerald-200" : "bg-amber-50 border-amber-200"}`}>
           <div className="flex flex-col items-center text-center">
-            {isCashier ? (
-              <Clock className="w-16 h-16 text-amber-500 mb-4" />
-            ) : (
+            {showPaidUI ? (
               <CheckCircle className="w-16 h-16 text-emerald-500 mb-4" />
+            ) : (
+              <Clock className="w-16 h-16 text-amber-500 mb-4" />
             )}
 
-            <h2 className={`font-serif text-2xl mb-2 ${isCashier ? "text-amber-900" : "text-emerald-900"}`}>
-              {isCashier ? "Complete Your Payment" : "Thank You For Your Purchase"}
+            <h2 className={` text-2xl mb-2 ${showPaidUI ? "text-emerald-900" : "text-amber-900"}`}>
+              {showPaidUI ? "Payment Confirmed" : "Complete Your Payment"}
             </h2>
 
             <p className="font-mono text-sm text-stone-600 mb-6 max-w-md mx-auto">
-              {isCashier
-                ? "Silakan lakukan pembayaran di kasir atau mesin EDC kami untuk memproses pesanan Anda."
-                : "Pesanan Anda telah kami terima dan sedang diproses. Kami akan mengirimkan update via email."
+              {showPaidUI
+                ? "Pembayaran Anda telah dikonfirmasi. Pesanan kini masuk dalam tahap produksi dan pengiriman."
+                : "Silakan lakukan pembayaran di kasir atau mesin EDC kami untuk memproses pesanan Anda."
               }
             </p>
 
@@ -117,7 +143,7 @@ export default function OrderSuccessContent() {
               <p className="font-mono text-[0.65rem] uppercase tracking-widest text-stone-400 mb-1">
                 Order Reference Number
               </p>
-              <p className="font-mono text-2xl font-bold text-stone-800 break-all">
+              <p className="font-mono text-5xl font-bold text-stone-800 break-all">
                 {orderData.order_id}
               </p>
             </div>
@@ -146,7 +172,7 @@ export default function OrderSuccessContent() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-8 pb-8 border-b border-dashed border-stone-200">
               <div>
                 <h3 className="font-mono text-[0.65rem] uppercase text-stone-400 mb-2 font-bold tracking-tighter">Shipping Address</h3>
-                <p className="font-serif text-sm text-stone-800 font-bold mb-1">{orderData.customer_name}</p>
+                <p className=" text-sm text-stone-800 font-bold mb-1">{orderData.customer_name}</p>
                 <p className="font-mono text-[0.75rem] text-stone-600 leading-relaxed">
                   {orderData.address}<br />
                   {orderData.postal_code}
@@ -205,7 +231,7 @@ export default function OrderSuccessContent() {
                 <CreditCard size={120} />
               </div>
               <div className="relative z-10 flex-1">
-                <h3 className="font-serif text-2xl mb-2">Instruksi Pembayaran</h3>
+                <h3 className=" text-2xl mb-2">Instruksi Pembayaran</h3>
                 <p className="font-mono text-xs text-stone-400 mb-6 uppercase tracking-widest">Langkah selanjutnya di Kasir</p>
                 <ul className="space-y-4 font-mono text-sm">
                   <li className="flex gap-3">
@@ -225,7 +251,7 @@ export default function OrderSuccessContent() {
             </div>
           ) : (
             <div className="bg-stone-100 border border-stone-200 rounded-2xl p-8 shadow-sm">
-              <h3 className="font-serif text-2xl text-stone-800 mb-6">What's Next?</h3>
+              <h3 className=" text-2xl text-stone-800 mb-6">What's Next?</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
                 <div className="flex gap-4">
                   <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm flex-shrink-0 border border-stone-100">

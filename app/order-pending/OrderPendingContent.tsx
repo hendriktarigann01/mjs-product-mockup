@@ -58,7 +58,7 @@ export default function OrderPendingContent() {
             <Clock className="w-16 h-16 text-yellow-600 mb-4 animate-pulse" />
 
             {/* Title */}
-            <h1 className="font-serif text-3xl text-stone-800 mb-2">
+            <h1 className=" text-3xl text-stone-800 mb-2">
               Payment Processing
             </h1>
 
@@ -85,7 +85,7 @@ export default function OrderPendingContent() {
 
         {/* Instructions */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
-          <h3 className="font-serif text-lg text-stone-800 mb-4">
+          <h3 className=" text-lg text-stone-800 mb-4">
             What to Do:
           </h3>
           <div className="space-y-3 font-mono text-sm text-stone-700">
@@ -109,7 +109,7 @@ export default function OrderPendingContent() {
 
         {/* Status Progress */}
         <div className="bg-stone-100 rounded-lg p-6 mb-8">
-          <h3 className="font-serif text-lg text-stone-800 mb-4">Status:</h3>
+          <h3 className=" text-lg text-stone-800 mb-4">Status:</h3>
           <div className="space-y-3">
             <div className="flex items-center gap-3">
               <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center">
@@ -164,7 +164,7 @@ export default function OrderPendingContent() {
 
         {/* FAQ */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
-          <h3 className="font-serif text-lg text-stone-800 mb-4">FAQ:</h3>
+          <h3 className=" text-lg text-stone-800 mb-4">FAQ:</h3>
           <div className="space-y-4 font-mono text-sm">
             <div>
               <p className="font-semibold text-stone-800 mb-1">
@@ -199,7 +199,7 @@ export default function OrderPendingContent() {
           <p className="font-mono text-xs text-stone-600 mb-2">
             Payment still pending after 30 minutes? Contact us
           </p>
-          <p className="font-serif text-sm text-stone-800">
+          <p className=" text-sm text-stone-800">
             📞 +62-851-5800-4568
           </p>
         </div>

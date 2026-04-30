@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { ShoppingBag } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import {
   useReactTable,
@@ -71,6 +72,7 @@ const statusBadge = (status: string) => {
 function SummaryCards({ orders }: { orders: AdminOrder[] }) {
   const totalRevenue = orders.reduce((s, o) => s + o.totalHarga + o.ongkir, 0);
   const pending = orders.filter((o) => o.status === "pending").length;
+  const paid = orders.filter((o) => o.status === "paid").length;
   const shipped = orders.filter((o) => o.status === "shipped" || o.status === "completed").length;
   const jabodetabek = orders.filter((o) => o.jabodetabek).length;
 
@@ -80,12 +82,12 @@ function SummaryCards({ orders }: { orders: AdminOrder[] }) {
         { label: "Total Order", value: orders.length, cls: "text-[1.75rem] font-bold text-stone-900 leading-none" },
         { label: "Total Revenue", value: rupiah(totalRevenue), cls: "text-[1.3rem] font-bold text-stone-900 leading-none" },
         { label: "Pending", value: pending, cls: "text-[1.75rem] font-bold text-amber-600 leading-none" },
+        { label: "Paid", value: paid, cls: "text-[1.75rem] font-bold text-amber-600 leading-none" },
         { label: "Terkirim", value: shipped, cls: "text-[1.75rem] font-bold text-green-600 leading-none" },
-        { label: "Jabodetabek", value: jabodetabek, cls: "text-[1.75rem] font-bold text-stone-900 leading-none" },
       ].map(({ label, value, cls }) => (
         <div key={label} className="bg-[#FAFAF8] border border-[#E7E4DF] rounded-lg px-5 py-[1.1rem]">
           <p className="text-[0.65rem] font-semibold uppercase tracking-[0.08em] text-stone-500 mb-1.5">{label}</p>
-          <p className={cls} style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>{value}</p>
+          <p className={cls}>{value}</p>
         </div>
       ))}
     </div>
@@ -106,6 +108,8 @@ export default function DashboardPage() {
   const [editingOrder, setEditingOrder] = useState<AdminOrder | null>(null);
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; onConfirm: () => void } | null>(null);
   const [editFormData, setEditFormData] = useState<any>({});
+  const [selectedPhotos, setSelectedPhotos] = useState<string[] | null>(null);
+  const [selectedItems, setSelectedItems] = useState<any[] | null>(null);
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -168,6 +172,9 @@ export default function DashboardPage() {
     setConfirmModal({
       isOpen: true,
       onConfirm: async () => {
+        const isBecomingPaid = editFormData.status === "paid" && editingOrder.status !== "paid";
+        const orderId = editingOrder.orderId;
+
         setConfirmModal(null);
         try {
           const { error } = await supabase
@@ -189,6 +196,14 @@ export default function DashboardPage() {
           if (error) {
             alert("Gagal menyimpan data: " + error.message);
           } else {
+            // Trigger email jika status berubah menjadi PAID (Cashier flow)
+            if (isBecomingPaid) {
+              console.log("Triggering email for paid order:", orderId);
+              fetch(`${process.env.NEXT_PUBLIC_API_URL || ""}/api/orders/${encodeURIComponent(orderId)}/notify-paid`, {
+                method: "POST"
+              }).catch(e => console.error("Failed to notify paid email", e));
+            }
+
             setEditingOrder(null);
             fetchOrders();
           }
@@ -244,13 +259,12 @@ export default function DashboardPage() {
         const items = info.getValue<any[]>();
         if (!items || !items.length) return <span className="text-stone-400">-</span>;
         return (
-          <div className="flex flex-col gap-1 max-w-[200px] overflow-hidden">
-            {items.map((i: any, idx: number) => (
-              <span key={idx} className="text-[0.65rem] text-stone-600 truncate" title={i.name}>
-                {i.quantity}x {i.name}
-              </span>
-            ))}
-          </div>
+          <button
+            onClick={() => setSelectedItems(items)}
+            className="text-blue-500 hover:underline text-[0.65rem] text-left"
+          >
+            Lihat ({items.length})
+          </button>
         );
       },
     },
@@ -260,27 +274,16 @@ export default function DashboardPage() {
       accessorKey: "productUrl",
       cell: (info) => {
         const url = info.getValue<string>();
-        return url ? (
-          <a href={url} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline text-[0.65rem]">
-            Lihat
-          </a>
-        ) : (
-          <span className="text-stone-400">-</span>
-        );
-      },
-    },
-    {
-      id: "desain",
-      header: "Desain",
-      accessorKey: "pdfUrl",
-      cell: (info) => {
-        const url = info.getValue<string>();
-        return url ? (
-          <a href={url} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline text-[0.65rem]">
-            Lihat
-          </a>
-        ) : (
-          <span className="text-stone-400">-</span>
+        if (!url) return <span className="text-stone-400">-</span>;
+
+        const urls = url.split(",").filter(Boolean);
+        return (
+          <button
+            onClick={() => setSelectedPhotos(urls)}
+            className="text-blue-500 hover:underline text-[0.65rem] text-left"
+          >
+            Lihat ({urls.length})
+          </button>
         );
       },
     },
@@ -371,7 +374,7 @@ export default function DashboardPage() {
           <div>
             <h1
               className="text-[2rem] font-bold tracking-tight text-stone-900 leading-[1.1]"
-              style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
+
             >
               Order Dashboard
             </h1>
@@ -501,8 +504,8 @@ export default function DashboardPage() {
                   key={i}
                   onClick={() => table.setPageIndex(i)}
                   className={`min-w-[30px] h-[30px] border rounded-[5px] text-[0.75rem] flex items-center justify-center px-2 cursor-pointer transition-all duration-100 ${table.getState().pagination.pageIndex === i
-                      ? "bg-stone-900 text-[#F5F2ED] border-stone-900"
-                      : "border-[#D6D3CD] bg-[#FAFAF8] text-stone-900 hover:bg-[#F0EDE8] hover:border-stone-400"
+                    ? "bg-stone-900 text-[#F5F2ED] border-stone-900"
+                    : "border-[#D6D3CD] bg-[#FAFAF8] text-stone-900 hover:bg-[#F0EDE8] hover:border-stone-400"
                     }`}
                 >
                   {i + 1}
@@ -649,7 +652,7 @@ export default function DashboardPage() {
       {/* ── Confirmation Modal ── */}
       {confirmModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white rounded-[16px] w-full max-w-sm p-6 text-center shadow-2xl animate-in zoom-in duration-200">
+          <div className="bg-white rounded-[16px] w-full max-sm p-6 text-center shadow-2xl animate-in zoom-in duration-200">
             <h3 className="text-lg font-bold text-stone-800 mb-2">Konfirmasi Simpan</h3>
             <p className="text-sm text-stone-500 mb-6">Apakah Anda yakin ingin menyimpan perubahan data pesanan ini?</p>
             <div className="flex gap-3 justify-center">
@@ -664,6 +667,146 @@ export default function DashboardPage() {
                 className="flex-1 px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors shadow-md"
               >
                 Ya, Simpan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Items Popup Modal ── */}
+      {selectedItems && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setSelectedItems(null)}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-2xl p-6 shadow-2xl relative"
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setSelectedItems(null)}
+              className="absolute -top-12 right-0 text-white flex items-center gap-2 hover:text-stone-300 transition-colors"
+            >
+              <span className="text-sm font-semibold">Tutup</span>
+              <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/20">
+                ✕
+              </div>
+            </button>
+
+            <h3 className="text-xl font-bold text-stone-800 mb-6 border-b pb-4">
+              Order Items ({selectedItems.length})
+            </h3>
+
+            <div className="max-h-[60vh] overflow-y-auto pr-2 no-scrollbar space-y-4">
+              {selectedItems.map((item, idx) => (
+                <div key={idx} className="flex gap-4 p-4 rounded-xl border border-stone-100 bg-stone-50/50">
+                  <div className="w-16 h-16 bg-white rounded-lg flex-shrink-0 border border-stone-200 p-1">
+                    {item.image ? (
+                      <img src={item.image} alt={item.name} className="w-full h-full object-contain" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-stone-300">
+                        <ShoppingBag size={20} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="font-bold text-stone-800 text-sm">{item.name}</h4>
+                        <p className="text-xs text-stone-500 mt-0.5">Qty: {item.quantity} · {item.color || "Default"}</p>
+                      </div>
+                      <span className="text-sm font-mono font-bold text-stone-700">
+                        {rupiah(item.price * item.quantity)}
+                      </span>
+                    </div>
+                    {item.customization && (
+                      <div className="mt-2 pt-2 border-t border-stone-100 flex flex-wrap gap-2">
+                        {item.customization.size && (
+                          <span className="px-2 py-0.5 bg-stone-200 text-stone-700 rounded text-[10px] font-bold uppercase">Size: {item.customization.size}</span>
+                        )}
+                        {item.customization.giftCardUrl && (
+                          <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-bold uppercase">Gift Card</span>
+                        )}
+                        {item.customization.designImageUrl && (
+                          <a href={item.customization.designImageUrl} target="_blank" rel="noreferrer" className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-bold uppercase hover:bg-blue-200">View Design</a>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-8 pt-6 border-t flex justify-between items-center">
+              <div className="text-stone-500 text-xs font-mono">
+                Total Item: {selectedItems.reduce((s, i) => s + i.quantity, 0)}
+              </div>
+              <button
+                onClick={() => setSelectedItems(null)}
+                className="px-8 py-2.5 bg-stone-900 text-white rounded-xl font-bold text-sm hover:bg-stone-800 transition-all active:scale-95"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Photo Popup Modal ── */}
+      {selectedPhotos && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+          onClick={() => setSelectedPhotos(null)}
+        >
+          <div
+            className="bg-white rounded-2xl w-full max-w-4xl p-6 shadow-2xl relative"
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setSelectedPhotos(null)}
+              className="absolute -top-12 right-0 text-white flex items-center gap-2 hover:text-stone-300 transition-colors"
+            >
+              <span className="text-sm font-semibold">Tutup</span>
+              <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center border border-white/20">
+                ✕
+              </div>
+            </button>
+
+            <h3 className="text-xl font-bold text-stone-800 mb-6 border-b pb-4">
+              Customer Photos ({selectedPhotos.length})
+            </h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-h-[60vh] overflow-y-auto p-2 no-scrollbar">
+              {selectedPhotos.map((url, idx) => (
+                <div key={idx} className="group relative aspect-square bg-stone-100 rounded-xl overflow-hidden border border-stone-200 shadow-sm transition-transform hover:scale-[1.02]">
+                  <img
+                    src={url}
+                    alt={`Customer photo ${idx + 1}`}
+                    className="w-full h-full object-contain"
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors pointer-events-none" />
+                  <div className="absolute bottom-3 left-3 bg-white/90 backdrop-blur-sm px-2 py-1 rounded text-[10px] font-bold text-stone-600 shadow-sm">
+                    PHOTO {idx + 1}
+                  </div>
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="absolute top-3 right-3 w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                    title="Buka original"
+                  >
+                    ↗
+                  </a>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-8 flex justify-center">
+              <button
+                onClick={() => setSelectedPhotos(null)}
+                className="px-10 py-3 bg-stone-900 text-white rounded-xl font-bold text-sm hover:bg-stone-800 transition-all active:scale-95 shadow-lg"
+              >
+                Tutup Galeri
               </button>
             </div>
           </div>

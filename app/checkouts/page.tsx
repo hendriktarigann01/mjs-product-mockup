@@ -519,7 +519,7 @@ function CheckoutContent() {
             <p className="text-stone-500 mb-6">Silakan pilih metode pembayaran yang Anda inginkan untuk menyelesaikan pesanan.</p>
 
             <div className="space-y-4">
-              <button
+              {/* <button
                 onClick={() => handleCheckout("midtrans")}
                 className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-stone-200 hover:border-[#2CAAE1] hover:bg-[#2CAAE1]/5 transition-all text-left group"
               >
@@ -528,7 +528,7 @@ function CheckoutContent() {
                   <div className="text-sm text-stone-500">QRIS, GoPay, Transfer Bank</div>
                 </div>
                 <div className="text-[#2CAAE1]">→</div>
-              </button>
+              </button> */}
 
               <button
                 onClick={() => handleCheckout("cashier")}

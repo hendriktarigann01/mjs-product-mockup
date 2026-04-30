@@ -71,7 +71,7 @@ export default function OrderSummary({
 
         <div className="flex-1 min-w-0">
           <div className="flex justify-between">
-            <p className="font-serif text-sm text-stone-800">{item.name}</p>
+            <p className=" text-sm text-stone-800">{item.name}</p>
             <p className="font-mono text-xs text-stone-700">
               {formatRp(item.price)}
             </p>
@@ -142,12 +142,12 @@ export default function OrderSummary({
         </div>
 
         <div className="flex justify-between pt-3 border-t border-stone-200">
-          <span className="font-serif text-base text-stone-800">Total</span>
+          <span className=" text-base text-stone-800">Total</span>
           <div className="text-right">
             <span className="font-mono text-[10px] text-stone-400 mr-1">
               IDR
             </span>
-            <span className="font-serif text-lg text-stone-800">
+            <span className=" text-lg text-stone-800">
               {formatRp(total)}
             </span>
           </div>

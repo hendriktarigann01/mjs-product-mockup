@@ -16,7 +16,7 @@ export function ContactSection({
 }: ContactSectionProps) {
   return (
     <section className="mb-8">
-      <h2 className="font-serif text-xl text-stone-800 mb-4">Contact</h2>
+      <h2 className=" text-xl text-stone-800 mb-4">Contact</h2>
       <div className="space-y-3">
         <input
           type="email"

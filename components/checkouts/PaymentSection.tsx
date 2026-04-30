@@ -4,7 +4,7 @@ import { PAYMENT_METHODS } from "@/constants/checkout";
 export function PaymentSection() {
   return (
     <section className="mb-8">
-      <h2 className="font-serif text-xl text-stone-800 mb-1">Payment</h2>
+      <h2 className=" text-xl text-stone-800 mb-1">Payment</h2>
       <p className="font-mono text-[10px] text-stone-400 mb-4 flex items-center gap-1">
         <Lock size={9} /> All transactions are secure and encrypted.
       </p>

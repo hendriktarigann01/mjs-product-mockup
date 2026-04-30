@@ -9,7 +9,7 @@
 import { useState } from "react";
 import QRCode from "react-qr-code";
 import { supabase } from "@/lib/supabase";
-import { getCart } from "@/utils/cart-service";
+import { getCart, clearCart } from "@/utils/cart-service";
 import type { CartItemWithCustomization } from "@/utils/cart-service";
 
 interface QRCheckoutModalProps {
@@ -59,7 +59,35 @@ export function QRCheckoutModal({ isOpen, onClose, cartItems }: QRCheckoutModalP
       if (dbError) throw new Error(dbError.message);
 
       const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
-      setQrUrl(`${baseUrl}/checkouts?session_id=${data.id}`);
+      const url = `${baseUrl}/checkouts?session_id=${data.id}`;
+      setQrUrl(url);
+
+      // Real-time listener: Tutup modal jika status berubah (berarti sudah di-scan & diproses)
+      const channel = supabase
+        .channel(`checkout-${data.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "checkout_sessions",
+            filter: `id=eq.${data.id}`,
+          },
+          (payload) => {
+            const newStatus = payload.new.status;
+            if (newStatus === "paid" || newStatus === "waiting_payment") {
+              console.log("✅ Checkout session used, closing modal...");
+              handleClose();
+              // Opsional: window.location.href = "/order-success"; 
+              // Tapi biasanya biarkan user di desktop lihat ini tutup sendiri
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create session");
     } finally {
@@ -68,6 +96,11 @@ export function QRCheckoutModal({ isOpen, onClose, cartItems }: QRCheckoutModalP
   };
 
   const handleClose = () => {
+    if (qrUrl) {
+      clearCart();
+      window.location.href = "/";
+      return;
+    }
     setQrUrl(null);
     setName("");
     setEmail("");
@@ -172,6 +205,7 @@ export function QRCheckoutModal({ isOpen, onClose, cartItems }: QRCheckoutModalP
                   </p>
                 </div>
 
+
                 <div className="w-full bg-stone-50 rounded-xl p-3 border border-stone-100">
                   <p className="text-[10px] text-stone-400 break-all font-mono select-all">
                     {qrUrl}
@@ -188,7 +222,7 @@ export function QRCheckoutModal({ isOpen, onClose, cartItems }: QRCheckoutModalP
             onClick={handleClose}
             className="w-full py-3 text-stone-500 text-base font-medium hover:text-stone-800 transition-colors"
           >
-            {qrUrl ? "Done" : "Cancel"}
+            {qrUrl ? "Done / Reset" : "Cancel"}
           </button>
         </div>
       </div>

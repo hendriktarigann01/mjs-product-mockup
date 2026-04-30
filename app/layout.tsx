@@ -1,20 +1,14 @@
 import type { Metadata } from "next";
-import { Playfair_Display, DM_Sans } from "next/font/google";
+import { Chewy, DM_Sans } from "next/font/google";
 import "./globals.css";
 
-const playfair = Playfair_Display({
+const chewy = Chewy({
   subsets: ["latin"],
-  weight: ["400", "500"],
-  variable: "--font-serif",
+  weight: ["400"],
+  variable: "--font-chewy",
   display: "swap",
 });
 
-const dmSans = DM_Sans({
-  subsets: ["latin"],
-  weight: ["300", "400", "500"],
-  variable: "--font-sans",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "Happify Indonesia - Customize Your Products",
@@ -27,10 +21,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="id" className={`${playfair.variable} ${dmSans.variable}`}>
+    <html lang="id" className={`${chewy.variable}`}>
       <body
         className="bg-white antialiased"
-        style={{ fontFamily: "var(--font-sans, DM Sans, sans-serif)" }}
+        style={{ fontFamily: "var(--font-chewy, Chewy)" }}
       >
         {children}
       </body>

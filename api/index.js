@@ -7,15 +7,9 @@ const midtransRouter = require("./routes/midtrans");
 const { getOrderByOrderId } = require("./services/supabase");
 const { sendWAResi } = require("./services/whatsapp");
 
-const app = express();
-app.use(cors({
-  origin: "*",
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
-  credentials: true
-}));
-app.options("*", cors());
 
+const app = express();
+app.use(cors());
 app.use(express.json({ limit: "150mb" }));
 
 // ── Routes ────────────────────────────────────────────────────────────────────
@@ -58,6 +52,39 @@ app.get("/api/orders/:orderId", async (req, res) => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// POST /api/orders/:orderId/notify-paid
+// Dipanggil oleh Admin Dashboard saat status diset ke 'paid' (Cashier flow)
+// ═══════════════════════════════════════════════════════════════════════════════
+app.post("/api/orders/:orderId/notify-paid", async (req, res) => {
+  try {
+    const { getOrderByOrderId } = require("./services/supabase");
+    const { sendOrderEmailCustomerOnly } = require("./services/email");
+    const orderData = await getOrderByOrderId(req.params.orderId);
+
+    if (!orderData) return res.status(404).json({ error: "Order not found" });
+
+    const orderSummary = {
+      orderId: orderData.order_id,
+      customerName: orderData.customer_name,
+      email: orderData.email,
+      phone: orderData.phone,
+      address: orderData.address,
+      items: orderData.cart_items || [],
+      totalHarga: orderData.subtotal,
+      ongkir: orderData.shipping_cost,
+      grossAmount: orderData.total_price,
+      shippingName: orderData.shipping_courier
+    };
+
+    await sendOrderEmailCustomerOnly(orderSummary);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Notify paid error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 
 app.use((err, req, res, next) => {
@@ -67,19 +94,7 @@ app.use((err, req, res, next) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
-if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
-  const server = app.listen(PORT, () => {
-    console.log(`API running on http://localhost:${PORT}`);
-  });
 
-  server.on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-      console.error(`PORT ${PORT} is already in use by another process.`);
-      process.exit(1);
-    } else {
-      console.error('Server error:', err);
-    }
-  });
-}
-
-module.exports = app;
+const server = app.listen(PORT, () => {
+  console.log(`API running on port ${PORT}`);
+});
