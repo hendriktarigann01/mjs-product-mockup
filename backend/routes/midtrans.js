@@ -232,20 +232,33 @@ router.post("/callback", async (req, res) => {
     if (status === "paid") {
       console.log(`✅ Order ${order_id} paid`);
 
-      // Baca file temp dari disk (untuk data order summary & kirim email customer)
-      const { orderSummary, pdfBase64 } = readTempOrderFiles(order_id);
+      // Ambil data order dari Supabase (menggantikan baca file temp)
+      const orderData = await getOrderByOrderId(order_id);
 
-      if (orderSummary) {
+      if (orderData) {
+        // Map data dari DB ke format yang diharapkan email service jika perlu
+        const orderSummary = {
+          orderId: orderData.order_id,
+          customerName: orderData.customer_name,
+          email: orderData.email,
+          phone: orderData.phone,
+          address: orderData.address,
+          items: orderData.cart_items || [],
+          totalHarga: orderData.subtotal,
+          ongkir: orderData.shipping_cost,
+          grossAmount: orderData.total_price,
+          shippingName: orderData.shipping_courier
+        };
+
         // ── Email customer konfirmasi (TETAP AKTIF) ────────────────────────
-        // ── Email pabrik (HOLD — ganti dengan Cloudinary PNG, skip PDF) ───
         sendOrderEmailCustomerOnly(orderSummary).catch((e) =>
           console.error("⚠️ Email customer error (non-fatal):", e.message),
         );
-        // Hapus file temp
-        deleteTempOrderFiles(order_id);
+        
+        // Tidak perlu hapus file temp karena tidak lagi menggunakan filesystem
       } else {
         console.warn(
-          `⚠️ [TempFile] Order data not found for: ${order_id} — email skipped`,
+          `⚠️ [DB] Order data not found for: ${order_id} — email skipped`,
         );
       }
     }

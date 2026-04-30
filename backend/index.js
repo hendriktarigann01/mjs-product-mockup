@@ -1,9 +1,3 @@
-// Tujuan      : Entry point Express server — mount routes, middleware, listen
-// Caller      : node backend/index.js / Vercel Serverless
-// Dependensi  : express, cors, routes/midtrans, services/supabase, services/whatsapp
-// Main Exports: app (Express instance)
-// Side Effects: HTTP server listen on PORT, DB read/write, WhatsApp API call, HTTP responses, CORS handling
-
 require("dotenv").config();
 
 const express = require("express");
@@ -69,18 +63,19 @@ app.use((err, req, res, next) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-const PORT = process.env.PORT || 3001;
-const server = app.listen(PORT, () => {
-  console.log(`API running on http://localhost:${PORT}`);
-});
+if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
+  const server = app.listen(PORT, () => {
+    console.log(`API running on http://localhost:${PORT}`);
+  });
 
-server.on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    console.error(`PORT ${PORT} is already in use by another process.`);
-    process.exit(1);
-  } else {
-    console.error('Server error:', err);
-  }
-});
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`PORT ${PORT} is already in use by another process.`);
+      process.exit(1);
+    } else {
+      console.error('Server error:', err);
+    }
+  });
+}
 
 module.exports = app;

@@ -213,21 +213,9 @@ function CheckoutContent() {
         shippingName: selectedShipping?.name || "",
       };
 
+      // Simpan data order di Supabase sudah dilakukan di backend/routes/midtrans.js
+      // Tidak perlu lagi menyimpan file JSON/PDF sementara di public/temp karena Vercel read-only
       let hasTempFile = false;
-      try {
-        const saveRes = await fetch("/api/pdf", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            orderId,
-            pdfBase64: null, // Matikan sementara karena error 413 Content Too Large
-            orderSummary: orderSummaryForTemp,
-          }),
-        });
-        if (saveRes.ok) hasTempFile = true;
-      } catch (e) {
-        console.warn("[PDF/temp] Save exception:", e);
-      }
 
       const paymentData = {
         transactionDetails: { orderId, grossAmount },

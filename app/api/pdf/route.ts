@@ -18,41 +18,11 @@ async function ensureTempDir() {
 // ── POST /api/pdf — Simpan PDF dan order summary ke public/temp/ ─────────────
 export async function POST(req: NextRequest) {
   try {
-    await ensureTempDir();
-
-    const body = await req.json();
-    const { orderId, pdfBase64, orderSummary } = body as {
-      orderId: string;
-      pdfBase64: string | null;
-      orderSummary: object;
-    };
-
-    if (!orderId || !orderSummary) {
-      return NextResponse.json(
-        { error: "Missing orderId or orderSummary" },
-        { status: 400 }
-      );
-    }
-
-    // Simpan order summary JSON (selalu ada)
-    const jsonPath = path.join(TEMP_DIR, `${orderId}.json`);
-    await writeFile(jsonPath, JSON.stringify(orderSummary), "utf-8");
-
-    // Simpan PDF jika ada
-    if (pdfBase64) {
-      const pdfBuffer = Buffer.from(pdfBase64, "base64");
-      const pdfPath = path.join(TEMP_DIR, `${orderId}.pdf`);
-      await writeFile(pdfPath, pdfBuffer);
-      console.log(`[PDF/save] Saved: ${orderId}.pdf + ${orderId}.json`);
-    } else {
-      console.log(`[PDF/save] Saved: ${orderId}.json (no PDF)`);
-    }
-
-    return NextResponse.json({ success: true, orderId });
+    // Fitur simpan ke disk dimatikan sementara karena Vercel read-only
+    // Data order sudah aman di Supabase via backend
+    return NextResponse.json({ success: true, message: "PDF saving is temporarily disabled" });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
-    console.error("[PDF/save] Error:", msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
 
