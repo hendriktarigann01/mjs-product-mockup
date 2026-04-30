@@ -206,11 +206,11 @@ export function QRCheckoutModal({ isOpen, onClose, cartItems }: QRCheckoutModalP
                 </div>
 
 
-                <div className="w-full bg-stone-50 rounded-xl p-3 border border-stone-100">
+                {/* <div className="w-full bg-stone-50 rounded-xl p-3 border border-stone-100">
                   <p className="text-[10px] text-stone-400 break-all font-mono select-all">
                     {qrUrl}
                   </p>
-                </div>
+                </div> */}
               </div>
             </>
           )}
