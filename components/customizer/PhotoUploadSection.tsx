@@ -43,21 +43,17 @@ function CameraModal({
     
     async function startCamera() {
       try {
-        // Try with user facing mode first
         const s = await navigator.mediaDevices.getUserMedia({ 
           video: { facingMode: "user" } 
         });
         activeStream = s;
         setStream(s);
-        if (videoRef.current) videoRef.current.srcObject = s;
       } catch (err: any) {
         console.warn("Failed with facingMode:user, trying basic constraints", err);
         try {
-          // Fallback to any video source
           const s = await navigator.mediaDevices.getUserMedia({ video: true });
           activeStream = s;
           setStream(s);
-          if (videoRef.current) videoRef.current.srcObject = s;
         } catch (innerErr: any) {
           console.error("Camera access denied:", innerErr);
           setErrorMessage(`Camera access denied (${innerErr.name}). Please allow permissions.`);
@@ -73,6 +69,14 @@ function CameraModal({
       }
     };
   }, []);
+
+  // Separate effect to handle srcObject assignment when stream and ref are ready
+  useEffect(() => {
+    if (stream && videoRef.current) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.play().catch(e => console.error("Error playing video:", e));
+    }
+  }, [stream]);
 
   const capture = () => {
     if (videoRef.current) {
@@ -97,7 +101,7 @@ function CameraModal({
             <X size={20} />
           </button>
         </div>
-        <div className="relative aspect-square flex items-center justify-center">
+        <div className="relative aspect-square bg-black flex items-center justify-center">
           {error ? (
             <div className="p-6 text-center">
               <p className="text-white text-sm mb-4">{error}</p>
