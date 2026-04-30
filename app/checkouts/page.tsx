@@ -269,7 +269,6 @@ function CheckoutContent() {
             shipping_courier: selectedShipping?.name || "",
             payment_method: "Cashier",
             cart_items: paymentData.itemDetails,
-            full_cart_items: cartItems,
             pdf_url: customization?.designImageUrl || null,
             product_url: (customization?.photos || []).filter(Boolean)[0] || null,
             status: "pending",
