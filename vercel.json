@@ -2,6 +2,18 @@
     "version": 2,
     "rewrites": [
         {
+            "source": "/api/midtrans/(.*)",
+            "destination": "/backend/index.js"
+        },
+        {
+            "source": "/api/notify-resi",
+            "destination": "/backend/index.js"
+        },
+        {
+            "source": "/api/orders/(.*)",
+            "destination": "/backend/index.js"
+        },
+        {
             "source": "/backend/(.*)",
             "destination": "/backend/index.js"
         },

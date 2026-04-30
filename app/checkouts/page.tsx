@@ -183,6 +183,7 @@ function CheckoutContent() {
         firstItem?.name ??
         "product";
 
+      /* 
       const canvasPdfBase64 = await generatePatternPDFSafe({
         designSrc,
         photos: customization?.photos ?? [],
@@ -190,6 +191,8 @@ function CheckoutContent() {
         orderId,
         timeoutMs: 15000,
       });
+      */
+      const canvasPdfBase64 = null;
 
       const orderSummaryForTemp = {
         orderId,
@@ -217,7 +220,7 @@ function CheckoutContent() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             orderId,
-            pdfBase64: canvasPdfBase64 ?? null,
+            pdfBase64: null, // Matikan sementara karena error 413 Content Too Large
             orderSummary: orderSummaryForTemp,
           }),
         });

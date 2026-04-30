@@ -1,8 +1,8 @@
 // Tujuan      : Entry point Express server — mount routes, middleware, listen
-// Caller      : node backend/index.js
+// Caller      : node backend/index.js / Vercel Serverless
 // Dependensi  : express, cors, routes/midtrans, services/supabase, services/whatsapp
 // Main Exports: app (Express instance)
-// Side Effects: HTTP server listen on PORT
+// Side Effects: HTTP server listen on PORT, DB read/write, WhatsApp API call, HTTP responses, CORS handling
 
 require("dotenv").config();
 
@@ -14,7 +14,14 @@ const { getOrderByOrderId } = require("./services/supabase");
 const { sendWAResi } = require("./services/whatsapp");
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
+  credentials: true
+}));
+app.options("*", cors()); // Handle preflight requests
+
 app.use(express.json({ limit: "150mb" }));
 
 // ── Routes ────────────────────────────────────────────────────────────────────

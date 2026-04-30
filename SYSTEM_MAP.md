@@ -343,10 +343,10 @@ backend/
 
 | Endpoint | Method | Handler | Peran |
 |---|---|---|---|
-| `/api/midtrans/create-token` | `POST` | `routes/midtrans.js` | Buat Midtrans Snap token (QRIS only) + insert ke Supabase orders |
-| `/api/midtrans/callback` | `POST` | `routes/midtrans.js` | Webhook Midtrans — update Supabase status, baca file temp, kirim email, hapus file |
-| `/api/notify-resi` | `POST` | `index.js` | Kirim notif WhatsApp resi via Fonnte |
-| `/api/orders/:orderId` | `GET` | `index.js` | Ambil data order dari Supabase |
+| `/api/midtrans/create-token` | `POST` | `routes/midtrans.js` | Buat Midtrans Snap token (QRIS only) + insert ke Supabase orders (Routed via vercel.json) |
+| `/api/midtrans/callback` | `POST` | `routes/midtrans.js` | Webhook Midtrans — update Supabase status, baca file temp, kirim email, hapus file (Routed via vercel.json) |
+| `/api/notify-resi` | `POST` | `index.js` | Kirim notif WhatsApp resi via Fonnte (Routed via vercel.json) |
+| `/api/orders/:orderId` | `GET` | `index.js` | Ambil data order dari Supabase (Routed via vercel.json) |
 | `/health` | `GET` | `index.js` | Health check |
 
 ---
