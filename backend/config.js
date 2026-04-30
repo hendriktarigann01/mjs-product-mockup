@@ -30,10 +30,12 @@ const supabaseAdmin = createClient(
     process.env.SUPABASE_SERVICE_KEY,
 );
 
-// ── Resend (Email) ────────────────────────────────────────────────────────────
-const resend = new Resend(process.env.RESEND_API_KEY);
-const EMAIL_FROM = process.env.EMAIL_FROM;
-const EMAIL_PABRIK = process.env.EMAIL_PABRIK;
+// ── Resend (Email) — opsional, tidak crash jika API key kosong ────────────
+const resend = process.env.RESEND_API_KEY
+    ? new Resend(process.env.RESEND_API_KEY)
+    : null;
+const EMAIL_FROM = process.env.EMAIL_FROM || "";
+const EMAIL_PABRIK = process.env.EMAIL_PABRIK || "";
 
 // ── Fonnte (WhatsApp) ─────────────────────────────────────────────────────────
 const FONNTE_TOKEN = process.env.FONNTE_TOKEN;
