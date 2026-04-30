@@ -7,6 +7,14 @@
     },
     "rewrites": [
         {
+            "source": "/api/test",
+            "destination": "/api/index.js"
+        },
+        {
+            "source": "/api/health",
+            "destination": "/api/index.js"
+        },
+        {
             "source": "/api/midtrans/(.*)",
             "destination": "/api/index.js"
         },
@@ -27,4 +35,4 @@
             "destination": "/"
         }
     ]
-}
+}``
